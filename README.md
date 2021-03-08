@@ -1,3 +1,20 @@
+# Important Directory
+```bash
+# Benchmarks -> $DPH_DATA_DIR
+/mnt/nfs/scratch1/hmalara/DensePhrase_Harsh_Repo/DensePhrases/dph-data
+
+# Pretrained model && saved experiment -> $DPH_SAVE_DIR
+/mnt/nfs/scratch1/hmalara/DensePhrase_Harsh_Repo/DensePhrases/outputs
+
+# Pretrained Phrase Index
+/mnt/nfs/scratch1/hmalara/DensePhrase_Harsh_Repo/DensePhrases/outputs/dph-nqsqd-pb2_20181220_concat
+
+# Natural Question dataset
+/mnt/nfs/scratch1/hmalara/DensePhrase_Harsh_Repo/DensePhrases/dph-data/natural-question
+
+# Wikidump from Kilt
+/mnt/nfs/scratch1/hmalara/DensePhrase_Harsh_Repo/DensePhrases/dph-data/wikidump-kilt
+```
 # DensePhrases
 
 <div align="center">
