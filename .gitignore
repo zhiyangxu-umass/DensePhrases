@@ -19,3 +19,5 @@ run.sh
 eval_logger.txt
 
 /wandb
+
+Makefile
