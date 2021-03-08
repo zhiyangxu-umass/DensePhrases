@@ -15,3 +15,7 @@ run.sh
 /download
 
 /script
+
+eval_logger.txt
+
+/wandb
