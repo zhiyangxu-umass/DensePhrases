@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Modify below to your choice of directory
-export BASE_DIR=./
+export BASE_DIR=/mnt/nfs/scratch1/hmalara/DensePhrase_Harsh_Repo/DensePhrases
 
 while read -p "Use to $BASE_DIR as the base directory (requires at least 220GB for the installation)? [yes/no]: " choice; do
     case "$choice" in

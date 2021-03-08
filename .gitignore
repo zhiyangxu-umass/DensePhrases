@@ -1,0 +1,17 @@
+__pycache__
+
+*.pyc
+
+.DS_Store
+
+run.sh
+
+/experiment
+
+/.vscode
+
+/dataset
+
+/download
+
+/script
