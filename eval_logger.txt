@@ -1,2 +1,0 @@
-i
-/mnt/nfs/scratch1/hmalara/DensePhrase_Harsh_Repo/DensePhrases/outputs/test	17.500	26.349

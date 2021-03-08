@@ -1,6 +1,0 @@
-2021-03-08 11:43:01,005 INFO    MainThread:10632 [wandb_setup.py:_flush():69] setting env: {}
-2021-03-08 11:43:01,005 INFO    MainThread:10632 [wandb_init.py:_log_setup():334] Logging user logs to /mnt/nfs/scratch1/zhiyangxu/difficulty_aware_QA/DensePhrases/wandb/run-20210308_114300-yrfcqoec/logs/debug.log
-2021-03-08 11:43:01,005 INFO    MainThread:10632 [wandb_init.py:_log_setup():335] Logging internal logs to /mnt/nfs/scratch1/zhiyangxu/difficulty_aware_QA/DensePhrases/wandb/run-20210308_114300-yrfcqoec/logs/debug-internal.log
-2021-03-08 11:43:01,006 INFO    MainThread:10632 [wandb_init.py:init():367] calling init triggers
-2021-03-08 11:43:01,006 INFO    MainThread:10632 [wandb_init.py:init():374] wandb.init called with sweep_config: {}
-config: {}
