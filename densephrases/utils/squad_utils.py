@@ -384,7 +384,10 @@ def squad_convert_example_to_features(example, max_seq_length, doc_stride, max_q
                     qas_id=example.qas_id,
                     span_idx=span_idx,
                     doc_idx=example.doc_idx,
+                    wiki_idx=example.wiki_idx,
                     par_idx=example.par_idx,
+                    sec_idx=example.sec_idx,
+                    sec_title=example.sec_title,
                     title_offset=span["title_offset"],
                     neg_tokens=span["neg_tokens"] if len(example.neg_doc_tokens) > 0 else None,
                     neg_input_ids=span["neg_input_ids"] if len(example.neg_doc_tokens) > 0 else None,
@@ -785,6 +788,7 @@ class SquadProcessor(DataProcessor):
         if self.dev_file is None:
             raise ValueError("SquadProcessor should be instantiated via SquadV1Processor or SquadV2Processor")
 
+        print('### read from this dir ',os.path.join(data_dir, self.dev_file if filename is None else filename))
         with open(
             os.path.join(data_dir, self.dev_file if filename is None else filename), "r", encoding="utf-8"
         ) as reader:
@@ -808,8 +812,12 @@ class SquadProcessor(DataProcessor):
             title = entry["title"]
             short_context = []
             par_idx = 0
+            wiki_idx = entry['wikipedia_id']
             for _, paragraph in enumerate(entry["paragraphs"]):
                 context_text = paragraph["context"]
+                para_idx = paragraph["paragraph_id"]
+                sec_idx = paragraph["section_id"]
+                sec_title = paragraph["section_title"]
                 if ' ' in context_text: # non-breaking space '\xa0' to ' '
                     context_text = context_text.replace(' ', ' ')
                 total_cnt += 1
@@ -828,12 +836,15 @@ class SquadProcessor(DataProcessor):
                         if not paragraph['is_paragraph']:
                             non_para_cnt += 1
                             continue
-
+                    #TODO wire squad example with dev data
                     example = SquadExample(
                         context_text=context_text,
                         title=title,
                         doc_idx=doc_idx,
-                        par_idx=par_idx,
+                        wiki_idx=wiki_idx,
+                        par_idx=para_idx,
+                        sec_idx=sec_idx,
+                        sec_title=sec_title,
                         qas_id=None,
                         question_text=None,
                         answer_text=None,
@@ -849,6 +860,7 @@ class SquadProcessor(DataProcessor):
 
                 # Pre-processing questions
                 for qa in paragraph["qas"]:
+                    print('### question',qa)
                     if "id" not in qa:
                         assert len(paragraph["qas"]) == 1
                         qas_id = paragraph["id"]
@@ -959,13 +971,19 @@ class SquadExample(object):
         title=None,
         neg_title=None,
         doc_idx=None,
+        wiki_idx = None,
+        sec_idx=None,
+        sec_title=None,
         par_idx=None,
         answers=[],
         is_impossible=False,
     ):
         self.qas_id = qas_id
         self.doc_idx = doc_idx
+        self.wiki_idx = wiki_idx
         self.par_idx = par_idx
+        self.sec_idx=sec_idx
+        self.sec_title=sec_title
         self.question_text = question_text
         self.context_text = context_text
         self.neg_context_text = neg_context_text
@@ -1115,6 +1133,9 @@ class SquadFeatures(object):
         span_idx=None, # Doc span (strieded) idx
         par_idx=None, # paragraph idx
         doc_idx=None,
+        wiki_idx=None,
+        sec_idx=None,
+        sec_title=None,
         title_offset=None,
         neg_tokens=None,
         neg_input_ids=None,
@@ -1142,9 +1163,12 @@ class SquadFeatures(object):
         self.end_position = end_position
         self.is_impossible = is_impossible
         self.qas_id = qas_id
+        self.wiki_idx = wiki_idx
         self.span_idx = span_idx
         self.doc_idx = doc_idx
         self.par_idx = par_idx
+        self.sec_idx=sec_idx,
+        self.sec_title=sec_title,
         self.title_offset = title_offset
         self.neg_tokens = neg_tokens
         self.neg_input_ids = neg_input_ids

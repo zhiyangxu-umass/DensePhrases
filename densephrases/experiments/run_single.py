@@ -374,7 +374,7 @@ def evaluate(args, model, tokenizer, prefix=""):
 def dump_phrases(args, model, tokenizer):
     if not os.path.exists(os.path.join(args.output_dir, 'dump/phrase')):
         os.makedirs(os.path.join(args.output_dir, 'dump/phrase'))
-
+    print('### out phrase ###',os.path.join(args.output_dir, 'dump/phrase'))
     start_time = timeit.default_timer()
     if ':' not in args.predict_file:
         predict_files = [args.predict_file]
@@ -1032,6 +1032,7 @@ def main():
         model.to(args.device)
         logger.info(f'DensePhrases loaded from {args.load_dir} having {MODEL_MAPPING[config.__class__]}')
         logger.info('Number of model params while dumping: {:,}'.format(sum(p.numel() for p in model.parameters())))
+        print('### do dump phrase ####')
         dump_phrases(args, model, tokenizer)
 
 

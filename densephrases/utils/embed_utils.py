@@ -75,6 +75,10 @@ def get_metadata(features, results, max_answer_length, do_lower_case, tokenizer,
     full_text = ""
     prev_example = None
     word_pos = 0
+    sec_idxs = [] 
+    sec_titles = []
+    par_idxs = []
+    wiki_idxs=[]
     for feature, to in zip(features, toffs):
         example = id2example[feature.unique_id]
         if prev_example is not None and feature.span_idx == 0:
@@ -91,13 +95,19 @@ def get_metadata(features, results, max_answer_length, do_lower_case, tokenizer,
             word2char_end[word_pos] = end_pos
             word_pos += 1
         prev_example = example
+        sec_idxs.append(feature.sec_idx)
+        sec_titles.append(feature.sec_title)
+        par_idxs.append(feature.par_idx)
+        wiki_idxs.append(feature.wiki_idx)
     full_text = full_text + ' '.join(prev_example.doc_tokens)
 
     metadata = {
         'did': prev_example.doc_idx, 'context': full_text, 'title': prev_example.title,
         'start': start, 'start2end': start2end,
         'word2char_start': word2char_start, 'word2char_end': word2char_end,
-        'filter_start': fs, 'filter_end': fe, 'len_per_para': len_per_para
+        'filter_start': fs, 'filter_end': fe, 'len_per_para': len_per_para,
+        'section_ids': sec_idxs, 'section_titles': sec_titles, 'paragraph_ids': par_idxs,
+        'wikipedia_ids': wiki_idxs 
     }
 
     return metadata
@@ -220,6 +230,11 @@ def write_phrases(all_examples, all_features, all_results, max_answer_length, do
 
                     dg.attrs['context'] = metadata['context']
                     dg.attrs['title'] = metadata['title']
+                    dg.attrs['section_titles'] = metadata['section_titles']
+                    dg.attrs['section_ids'] = metadata['section_ids']
+                    dg.attrs['paragraph_ids'] = metadata['paragraph_ids']
+                    dg.attrs['wikipedia_ids'] = metadata['wikipedia_ids']
+                    print('####### metadata: ',metadata.keys(),metadata['section_titles'],metadata['section_ids'],metadata['paragraph_ids'],metadata['did'],metadata['wikipedia_ids'])
                     if dense_offset is not None:
                         metadata = compress_metadata(metadata, dense_offset, dense_scale)
                         dg.attrs['offset'] = dense_offset
