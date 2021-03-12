@@ -234,7 +234,8 @@ def write_phrases(all_examples, all_features, all_results, max_answer_length, do
                     dg.attrs['section_ids'] = metadata['section_ids']
                     dg.attrs['paragraph_ids'] = metadata['paragraph_ids']
                     dg.attrs['wikipedia_ids'] = metadata['wikipedia_ids']
-                    print('####### metadata: ',metadata.keys(),metadata['section_titles'],metadata['section_ids'],metadata['paragraph_ids'],metadata['did'],metadata['wikipedia_ids'])
+                    #print('#####  output file path: ',hdf5_path)
+                    #print('####### metadata: ',metadata.keys(),metadata['section_titles'],metadata['section_ids'],metadata['paragraph_ids'],metadata['did'],metadata['wikipedia_ids'])
                     if dense_offset is not None:
                         metadata = compress_metadata(metadata, dense_offset, dense_scale)
                         dg.attrs['offset'] = dense_offset
@@ -268,7 +269,9 @@ def write_phrases(all_examples, all_features, all_results, max_answer_length, do
         example = id2example[result.unique_id]
         feature = id2feature[result.unique_id]
         condition = len(features) > 0 and example.par_idx == 0 and feature.span_idx == 0
-
+        feature.sec_idx = feature.sec_idx[0]
+        feature.sec_title = feature.sec_title[0]
+        #print('features### ',feature.wiki_idx, feature.doc_idx, feature.sec_idx, feature.sec_title, feature.doc_idx, 'paragraph_id', feature.par_idx)
         if condition:
             # print('put')
             # in_ = (id2example_, features, results)

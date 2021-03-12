@@ -812,12 +812,12 @@ class SquadProcessor(DataProcessor):
             title = entry["title"]
             short_context = []
             par_idx = 0
-            wiki_idx = entry['wikipedia_id']
+            wiki_idx = entry.get('wikipedia_id',None)
             for _, paragraph in enumerate(entry["paragraphs"]):
                 context_text = paragraph["context"]
-                para_idx = paragraph["paragraph_id"]
-                sec_idx = paragraph["section_id"]
-                sec_title = paragraph["section_title"]
+                para_idx = paragraph.get("paragraph_id",None)
+                sec_idx = paragraph.get("section_id",None)
+                sec_title = paragraph.get("section_title",None)
                 if ' ' in context_text: # non-breaking space '\xa0' to ' '
                     context_text = context_text.replace(' ', ' ')
                 total_cnt += 1
@@ -842,7 +842,7 @@ class SquadProcessor(DataProcessor):
                         title=title,
                         doc_idx=doc_idx,
                         wiki_idx=wiki_idx,
-                        par_idx=para_idx,
+                        par_idx=int(para_idx)-1,
                         sec_idx=sec_idx,
                         sec_title=sec_title,
                         qas_id=None,
