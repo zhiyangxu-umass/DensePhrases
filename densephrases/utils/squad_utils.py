@@ -144,9 +144,10 @@ def squad_convert_example_to_features(example, max_seq_length, doc_stride, max_q
                 all_title_tokens.append(sub_token)
         all_title_tokens = all_title_tokens[:10] # max title token = 10
 
-        tok_to_orig_index = []
-        orig_to_tok_index = []
+        tok_to_orig_index = [] #word piece index -> orginal token index 
+        orig_to_tok_index = [] #original token index -> word piece
         all_doc_tokens = []
+        #one example is one paragraph in a doc
         for (i, token) in enumerate(example.doc_tokens):
             orig_to_tok_index.append(len(all_doc_tokens))
             sub_tokens = tokenizer.tokenize(token)
@@ -385,6 +386,7 @@ def squad_convert_example_to_features(example, max_seq_length, doc_stride, max_q
                     span_idx=span_idx,
                     doc_idx=example.doc_idx,
                     wiki_idx=example.wiki_idx,
+                    para_idx=example.para_idx,
                     par_idx=example.par_idx,
                     sec_idx=example.sec_idx,
                     sec_title=example.sec_title,
@@ -816,8 +818,12 @@ class SquadProcessor(DataProcessor):
             for _, paragraph in enumerate(entry["paragraphs"]):
                 context_text = paragraph["context"]
                 para_idx = paragraph.get("paragraph_id",None)
+                # if title == 'Frank Partridge (soldier)':
+                #     print(para_idx)
                 sec_idx = paragraph.get("section_id",None)
                 sec_title = paragraph.get("section_title",None)
+                if not sec_title is None:
+                    sec_title = sec_title.strip().replace('Section::::','')[:-1]
                 if ' ' in context_text: # non-breaking space '\xa0' to ' '
                     context_text = context_text.replace(' ', ' ')
                 total_cnt += 1
@@ -842,7 +848,8 @@ class SquadProcessor(DataProcessor):
                         title=title,
                         doc_idx=doc_idx,
                         wiki_idx=wiki_idx,
-                        par_idx=int(para_idx)-1,
+                        par_idx=par_idx,
+                        para_idx = int(para_idx)-1,
                         sec_idx=sec_idx,
                         sec_title=sec_title,
                         qas_id=None,
@@ -975,6 +982,7 @@ class SquadExample(object):
         sec_idx=None,
         sec_title=None,
         par_idx=None,
+        para_idx=None,
         answers=[],
         is_impossible=False,
     ):
@@ -982,6 +990,7 @@ class SquadExample(object):
         self.doc_idx = doc_idx
         self.wiki_idx = wiki_idx
         self.par_idx = par_idx
+        self.para_idx = para_idx
         self.sec_idx=sec_idx
         self.sec_title=sec_title
         self.question_text = question_text
@@ -1011,8 +1020,8 @@ class SquadExample(object):
                     prev_is_whitespace = False
                 char_to_word_offset.append(len(doc_tokens) - 1)
 
-            self.doc_tokens = doc_tokens
-            self.char_to_word_offset = char_to_word_offset
+            self.doc_tokens = doc_tokens #[tok, tok ,tok]
+            self.char_to_word_offset = char_to_word_offset #[0,0,0,1,1,2,3,4,4,4]
 
         # Same pre-processing for title tokens
         title_tokens = []
@@ -1132,6 +1141,7 @@ class SquadFeatures(object):
         qas_id: str = None,
         span_idx=None, # Doc span (strieded) idx
         par_idx=None, # paragraph idx
+        para_idx = None,
         doc_idx=None,
         wiki_idx=None,
         sec_idx=None,
@@ -1163,6 +1173,7 @@ class SquadFeatures(object):
         self.end_position = end_position
         self.is_impossible = is_impossible
         self.qas_id = qas_id
+        self.para_idx = para_idx
         self.wiki_idx = wiki_idx
         self.span_idx = span_idx
         self.doc_idx = doc_idx

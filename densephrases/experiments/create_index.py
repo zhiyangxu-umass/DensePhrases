@@ -52,7 +52,7 @@ def get_args():
 
     coarse = 'hnsw' if args.hnsw else 'flat'
     args.index_name = '%d_%s_%s' % (args.num_clusters, coarse, args.fine_quant)
-    args.index_dir = os.path.join(args.dump_dir, 'start', args.index_name)
+    args.index_dir = os.path.join(args.dump_dir, 'start_zx', args.index_name)
 
     args.quantizer_path = os.path.join(args.index_dir, args.quantizer_path)
     args.trained_index_path = os.path.join(args.index_dir, args.trained_index_path)
@@ -165,7 +165,10 @@ def add_to_index(dump_paths, trained_index_path, target_index_path, idx2id_path,
                  ignore_ids=None):
 
     sidx2doc_id = []
+    sidx2sec_id = []
+    sidx2para_id = []
     sidx2word_id = []
+
     dumps = [h5py.File(dump_path, 'r') for dump_path in dump_paths]
     print('reading %s' % trained_index_path)
     start_index = faiss.read_index(trained_index_path)
@@ -210,6 +213,8 @@ def add_to_index(dump_paths, trained_index_path, target_index_path, idx2id_path,
             start_valids.append(start_valid)
             sidx2doc_id.extend([int(doc_idx)] * num_start)
             sidx2word_id.extend(range(num_start))
+            sidx2sec_id.extend(doc_group['section_ids'][:])
+            sidx2para_id.extend(doc_group['paragraph_ids'][:])
             start_total += num_start
 
             if len(starts) > 0 and ((i % num_docs_per_add == 0) or (i == dump_length - 1)):
@@ -243,11 +248,15 @@ def add_to_index(dump_paths, trained_index_path, target_index_path, idx2id_path,
     print(start_total)
     sidx2doc_id = np.array(sidx2doc_id, dtype=np.int32)
     sidx2word_id = np.array(sidx2word_id, dtype=np.int32)
+    sidx2sec_id = np.array(sidx2sec_id, dtype=np.int32)
+    sidx2para_id = np.array(sidx2para_id, dtype=np.int32)
 
     print('writing index and metadata')
     with h5py.File(idx2id_path, 'w') as f:
         g = f.create_group(str(offset))
         g.create_dataset('doc', data=sidx2doc_id)
+        g.create_dataset('sec', data=sidx2sec_id)
+        g.create_dataset('para', data=sidx2para_id)
         g.create_dataset('word', data=sidx2word_id)
         g.attrs['offset'] = offset
 

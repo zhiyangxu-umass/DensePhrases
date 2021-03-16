@@ -42,10 +42,31 @@ def get_metadata(features, results, max_answer_length, do_lower_case, tokenizer,
 
     # Get rid of titles + save start only (as start and end are shared)
     toffs = [(f.input_ids.index(tokenizer.sep_token_id))*int(has_title) for f in features]
+
     start = np.concatenate(
         [result.start_vecs[to+1:len(feature.tokens) - 1] for feature, result, to in zip(features, results, toffs)],
         axis=0
     )
+    ## new meta-data ##
+    sec_idxs = [] 
+    para_idxs = []
+    for feature, result, to in zip(features, results, toffs):
+        length_tok = (len(feature.tokens) - 1)-(to+1)
+        sec_idxs.extend([feature.sec_idx]*length_tok)
+        # sec_titles.extend([feature.sec_title]*length_tok)
+        para_idxs.extend([feature.para_idx]*length_tok)
+        # wiki_idxs.extend([feature.wiki_idx]*length_tok)
+    sec_idxs = np.array(sec_idxs,dtype=np.int32)
+    para_idxs = np.array(para_idxs,dtype=np.int32)
+    # wiki_idxs = np.array(wiki_idxs,dtype=np.int32)
+    # sec_titles = np.array(sec_titles)
+
+    assert start.shape[0] == sec_idxs.shape[0]
+    assert start.shape[0] == para_idxs.shape[0]
+    # assert start.shape[0] == wiki_idxs.shape[0]
+    # assert start.shape[0] == sec_titles.shape[0]
+
+
 
     len_per_para = [len(f.input_ids[to+1:len(f.tokens)-1]) for to, f in zip(toffs, features)]
     curr_size = 0
@@ -75,10 +96,7 @@ def get_metadata(features, results, max_answer_length, do_lower_case, tokenizer,
     full_text = ""
     prev_example = None
     word_pos = 0
-    sec_idxs = [] 
     sec_titles = []
-    par_idxs = []
-    wiki_idxs=[]
     for feature, to in zip(features, toffs):
         example = id2example[feature.unique_id]
         if prev_example is not None and feature.span_idx == 0:
@@ -94,19 +112,22 @@ def get_metadata(features, results, max_answer_length, do_lower_case, tokenizer,
             word2char_start[word_pos] = start_pos
             word2char_end[word_pos] = end_pos
             word_pos += 1
+        #add section title
+        if not feature.sec_title in sec_titles:
+            sec_titles.append(feature.sec_title)
         prev_example = example
-        sec_idxs.append(feature.sec_idx)
-        sec_titles.append(feature.sec_title)
-        par_idxs.append(feature.par_idx)
-        wiki_idxs.append(feature.wiki_idx)
+    
     full_text = full_text + ' '.join(prev_example.doc_tokens)
-
+    #add wikipedia id
+    wiki_idxs = feature.wiki_idx
+    # if prev_example.title == 'Frank Partridge (soldier)':
+    #     print(para_idxs)
     metadata = {
         'did': prev_example.doc_idx, 'context': full_text, 'title': prev_example.title,
         'start': start, 'start2end': start2end,
         'word2char_start': word2char_start, 'word2char_end': word2char_end,
         'filter_start': fs, 'filter_end': fe, 'len_per_para': len_per_para,
-        'section_ids': sec_idxs, 'section_titles': sec_titles, 'paragraph_ids': par_idxs,
+        'section_ids': sec_idxs, 'section_titles': sec_titles, 'paragraph_ids': para_idxs,
         'wikipedia_ids': wiki_idxs 
     }
 
@@ -124,6 +145,10 @@ def filter_metadata(metadata, threshold):
         end_long2short = {long: short for short, long in enumerate(all_idxs)}
         print('all idxs were filtered, so use only one vector for this:', len(all_idxs))
     metadata['start'] = metadata['start'][all_idxs] # union of start/end
+    ###### add section id and para id
+    metadata['section_ids'] = metadata['section_ids'][all_idxs]
+    metadata['paragraph_ids'] = metadata['paragraph_ids'][all_idxs]
+    ###################################
     metadata['f2o_start'] = all_idxs
     metadata['start2end'] = metadata['start2end'][all_idxs]
     # print(metadata['start2end'])
@@ -231,16 +256,18 @@ def write_phrases(all_examples, all_features, all_results, max_answer_length, do
                     dg.attrs['context'] = metadata['context']
                     dg.attrs['title'] = metadata['title']
                     dg.attrs['section_titles'] = metadata['section_titles']
-                    dg.attrs['section_ids'] = metadata['section_ids']
-                    dg.attrs['paragraph_ids'] = metadata['paragraph_ids']
                     dg.attrs['wikipedia_ids'] = metadata['wikipedia_ids']
                     #print('#####  output file path: ',hdf5_path)
-                    #print('####### metadata: ',metadata.keys(),metadata['section_titles'],metadata['section_ids'],metadata['paragraph_ids'],metadata['did'],metadata['wikipedia_ids'])
+                    #print('####### metadata: ',metadata.keys(),metadata['section_titles'],metadata['section_ids'],metadata['paragraph_ids'],metadata['wikipedia_ids'])
                     if dense_offset is not None:
                         metadata = compress_metadata(metadata, dense_offset, dense_scale)
                         dg.attrs['offset'] = dense_offset
                         dg.attrs['scale'] = dense_scale
                     dg.create_dataset('start', data=metadata['start'])
+                    ##### pass om sec ids and para ids
+                    dg.create_dataset('section_ids', data=metadata['section_ids'])
+                    dg.create_dataset('paragraph_ids', data=metadata['paragraph_ids'])
+                    #####
                     dg.create_dataset('len_per_para', data=metadata['len_per_para'])
                     dg.create_dataset('start2end', data=metadata['start2end'])
                     dg.create_dataset('word2char_start', data=metadata['word2char_start'])

@@ -192,6 +192,10 @@ def eval_inmemory(args, mips=None, query_encoder=None, tokenizer=None):
     evidences = []
     titles = []
     scores = []
+    wiki_idxs = []
+    sec_titles = []
+    sec_idxs = []
+    para_idxs = []
     for q_idx in tqdm(range(0, len(questions), step)):
         result = mips.search(
             query_vec[q_idx:q_idx+step],
@@ -201,18 +205,26 @@ def eval_inmemory(args, mips=None, query_encoder=None, tokenizer=None):
         prediction = [[ret['answer'] for ret in out] if len(out) > 0 else [''] for out in result]
         evidence = [[ret['context'] for ret in out] if len(out) > 0 else [''] for out in result]
         title = [[ret['title'] for ret in out] if len(out) > 0 else [['']] for out in result]
+        wiki_idx = [[ret['wiki_idx'] for ret in out] if len(out) > 0 else [['']] for out in result]
+        sec_title = [[ret['sec_title'] for ret in out] if len(out) > 0 else [['']] for out in result]
+        sec_idx = [[ret['sec_idx'] for ret in out] if len(out) > 0 else [['']] for out in result]
+        para_idx = [[ret['para_idx'] for ret in out] if len(out) > 0 else [['']] for out in result]
         score = [[ret['score'] for ret in out] if len(out) > 0 else [-1e10] for out in result]
         predictions += prediction
         evidences += evidence
         titles += title
         scores += score
+        wiki_idxs += wiki_idx
+        sec_titles += sec_title
+        sec_idxs += sec_idx
+        para_idxs += para_idx
 
     logger.info(f"Avg. {sum(mips.num_docs_list)/len(mips.num_docs_list):.2f} number of docs per query")
     eval_fn = evaluate_results if not args.is_kilt else evaluate_results_kilt
-    return eval_fn(predictions, qids, questions, answers, args, evidences, scores, titles)
+    return eval_fn(predictions, wiki_idxs, sec_titles, sec_idxs, para_idxs, qids, questions, answers, args, evidences, scores, titles)
 
 
-def evaluate_results(predictions, qids, questions, answers, args, evidences, scores, titles, q_tokens=None):
+def evaluate_results(predictions, wiki_idxs, sec_titles, sec_idxs, para_idxs, qids, questions, answers, args, evidences, scores, titles, q_tokens=None):
     wandb.init(project="DensePhrases (open)", mode="online" if args.wandb else "disabled")
     wandb.config.update(args)
 
@@ -230,6 +242,11 @@ def evaluate_results(predictions, qids, questions, answers, args, evidences, sco
         top1_preds = [a[0] for a in topk_preds]
     else:
         predictions = [a[:args.top_k] if len(a) > 0 else [''] for a in predictions]
+        wiki_idxs = [a[:args.top_k] if len(a) > 0 else [''] for a in wiki_idxs]
+        sec_titles =[a[:args.top_k] if len(a) > 0 else [''] for a in sec_titles]
+        sec_idxs =[a[:args.top_k] if len(a) > 0 else [''] for a in sec_idxs]
+        para_idxs =[a[:args.top_k] if len(a) > 0 else [''] for a in para_idxs]
+
         top1_preds = [a[0] for a in predictions]
     no_ans = sum([a == '' for a in top1_preds])
     logger.info(f'no_ans/all: {no_ans}, {len(top1_preds)}')
@@ -285,6 +302,7 @@ def evaluate_results(predictions, qids, questions, answers, args, evidences, sco
         pred_out[qids[i]] = {
                 'question': questions[i],
                 'answer': answers[i], 'prediction': predictions[i], 'score': scores[i], 'title': titles[i],
+                'wiki_idx': wiki_idxs[i], 'sec_title': sec_titles[i], 'sec_idx': sec_idxs[i], 'para_idx': para_idxs[i],
                 'evidence': evidences[i] if evidences is not None else '',
                 'em_top1': bool(em_top1), f'em_top{args.top_k}': bool(em_topk),
                 'f1_top1': f1_top1, f'f1_top{args.top_k}': f1_topk,

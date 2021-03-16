@@ -64,7 +64,7 @@ class MIPS(object):
 
     def load_idx_f(self, idx2id_path):
         idx_f = {}
-        types = ['doc', 'word']
+        types = ['doc', 'word', 'sec', 'para']
         with h5py.File(idx2id_path, 'r') as f:
             for key in tqdm(f, desc='loading idx2id'):
                 idx_f_cur = {}
@@ -116,7 +116,11 @@ class MIPS(object):
             [[self.idx_f[str(offset)]['doc'][idx] for offset, idx in zip(oo, ii)] for oo, ii in zip(offsets, idxs)])
         word = np.array([[self.idx_f[str(offset)]['word'][idx] for offset, idx in zip(oo, ii)] for oo, ii in
                          zip(offsets, idxs)])
-        return doc, word
+        sec = np.array([[self.idx_f[str(offset)]['sec'][idx] for offset, idx in zip(oo, ii)] for oo, ii in
+                         zip(offsets, idxs)])
+        para = np.array([[self.idx_f[str(offset)]['para'][idx] for offset, idx in zip(oo, ii)] for oo, ii in
+                         zip(offsets, idxs)])
+        return doc, sec, para, word
 
     def get_doc_group(self, doc_idx):
         if len(self.phrase_dumps) == 1:
@@ -170,8 +174,8 @@ class MIPS(object):
 
         # Get idxs from resulting I
         start_time = time()
-        b_start_doc_idxs, b_start_idxs = self.get_idxs(start_I)
-        b_end_doc_idxs, b_end_idxs = self.get_idxs(end_I)
+        b_start_doc_idxs, b_start_sec_idxs, b_start_para_idxs, b_start_idxs = self.get_idxs(start_I)
+        b_end_doc_idxs, b_end_sec_idxs, b_end_para_idxs, b_end_idxs = self.get_idxs(end_I)
 
         # Number of unique docs
         num_docs = sum(
@@ -180,9 +184,9 @@ class MIPS(object):
         self.num_docs_list.append(num_docs)
         logger.debug(f'2) {time()-start_time:.3f}s: get index')
 
-        return b_start_doc_idxs, b_start_idxs, start_I, b_end_doc_idxs, b_end_idxs, end_I, b_start_scores, b_end_scores
+        return b_start_doc_idxs, b_start_sec_idxs, b_start_para_idxs, b_start_idxs, start_I, b_end_doc_idxs, b_end_sec_idxs, b_end_para_idxs, b_end_idxs, end_I, b_start_scores, b_end_scores
 
-    def search_phrase(self, query, start_doc_idxs, start_idxs, orig_start_idxs, end_doc_idxs, end_idxs, orig_end_idxs, start_scores,
+    def search_phrase(self, query, start_doc_idxs, start_sec_idxs, start_para_idxs, start_idxs, orig_start_idxs, end_doc_idxs, end_sec_idxs, end_para_idxs, end_idxs, orig_end_idxs, start_scores,
             end_scores, top_k=10, max_answer_length=10, return_idxs=False):
 
         # Reshape for phrase
@@ -190,14 +194,18 @@ class MIPS(object):
         query = np.reshape(np.tile(np.expand_dims(query, 1), [1, top_k, 1]), [-1, query.shape[1]])
         q_idxs = np.reshape(np.tile(np.expand_dims(np.arange(num_queries), 1), [1, top_k*2]), [-1])
         start_doc_idxs = np.reshape(start_doc_idxs, [-1])
+        start_sec_idxs = np.reshape(start_sec_idxs, [-1])
+        start_para_idxs = np.reshape(start_para_idxs, [-1])
         start_idxs = np.reshape(start_idxs, [-1])
         orig_start_idxs = np.reshape(orig_start_idxs, [-1])
         end_doc_idxs = np.reshape(end_doc_idxs, [-1])
+        end_sec_idxs = np.reshape(end_sec_idxs, [-1])
+        end_para_idxs = np.reshape(end_para_idxs, [-1])
         end_idxs = np.reshape(end_idxs, [-1])
         orig_end_idxs = np.reshape(orig_end_idxs, [-1])
         start_scores = np.reshape(start_scores, [-1])
         end_scores = np.reshape(end_scores, [-1])
-        assert len(start_doc_idxs) == len(start_idxs) == len(end_idxs) == len(start_scores)
+        assert len(start_doc_idxs) == len(start_idxs) == len(end_idxs) == len(start_scores) == len(start_sec_idxs) == len(start_para_idxs)
 
         # Set default vec
         start_time = time()
@@ -220,6 +228,8 @@ class MIPS(object):
                     'f2o_start': groups[doc_idx]['f2o_start'][:],
                     'context': groups[doc_idx].attrs['context'],
                     'title': groups[doc_idx].attrs['title'],
+                    'section_titles': groups[doc_idx].attrs['section_titles'],
+                    'wikipedia_ids': groups[doc_idx].attrs['wikipedia_ids'],
                     'offset': -2, # fixed
                     'scale': 20,
                 } for doc_idx in set(start_doc_idxs.tolist() + end_doc_idxs.tolist()) if doc_idx >= 0
@@ -297,7 +307,7 @@ class MIPS(object):
         pred_end_vecs = np.stack([each[idx] for each, idx in zip(end.cpu().numpy(), np.argmax(scores1, 1))], 0)
         logger.debug(f'2) {time()-start_time:.3f}s: find end')
 
-        # Find start fot end_idxs
+        # Find start for end_idxs
         start_time = time()
         starts = [group_end['start'] for end_idx, group_end in zip(end_idxs, groups_end)]
         new_start_idxs = [[
@@ -324,6 +334,8 @@ class MIPS(object):
         # Get start/end idxs of phrases
         start_time = time()
         doc_idxs = np.concatenate((np.expand_dims(start_doc_idxs, 1), np.expand_dims(end_doc_idxs, 1)), axis=1).flatten()
+        sec_idxs = np.concatenate((np.expand_dims(start_sec_idxs, 1), np.expand_dims(end_sec_idxs, 1)), axis=1).flatten()
+        para_idxs = np.concatenate((np.expand_dims(start_para_idxs, 1), np.expand_dims(end_para_idxs, 1)), axis=1).flatten()
         start_idxs = np.concatenate((np.expand_dims(start_idxs, 1), np.expand_dims(pred_start_idxs, 1)), axis=1).flatten()
         end_idxs = np.concatenate((np.expand_dims(pred_end_idxs, 1), np.expand_dims(end_idxs, 1)), axis=1).flatten()
         max_scores = np.concatenate((np.max(scores1, 1, keepdims=True), np.max(scores2, 1, keepdims=True)), axis=1).flatten()
@@ -341,6 +353,10 @@ class MIPS(object):
 
         out = [{
             'context': groups_all[doc_idx]['context'], 'title': [groups_all[doc_idx]['title']], 'doc_idx': doc_idx,
+            'wiki_idx': groups_all[doc_idx]['wikipedia_ids'],
+            'sec_idx': sec_idx,
+            'sec_title': groups_all[doc_idx]['section_titles'][sec_idx],
+            'para_idx': para_idx,
             'start_pos': groups_all[doc_idx]['word2char_start'][groups_all[doc_idx]['f2o_start'][start_idx]].item(),
             'end_pos': (groups_all[doc_idx]['word2char_end'][groups_all[doc_idx]['f2o_start'][end_idx]].item()
                 if (len(groups_all[doc_idx]['word2char_end']) > 0) and (end_idx >= 0)
@@ -350,8 +366,8 @@ class MIPS(object):
             'end_vec': end_vecs[group_idx] if return_idxs else None,
             } if doc_idx >= 0 else {
                 'score': -1e8, 'context': 'dummy', 'start_pos': 0, 'end_pos': 0}
-            for group_idx, (doc_idx, start_idx, end_idx, score) in enumerate(zip(
-                doc_idxs.tolist(), start_idxs.tolist(), end_idxs.tolist(), max_scores.tolist()))
+            for group_idx, (doc_idx, sec_idx, para_idx, start_idx, end_idx, score) in enumerate(zip(
+                doc_idxs.tolist(), sec_idxs.tolist(), para_idxs.tolist() ,start_idxs.tolist(), end_idxs.tolist(), max_scores.tolist()))
         ]
 
         for each in out:
@@ -392,7 +408,7 @@ class MIPS(object):
 
         # MIPS on start/end
         start_time = time()
-        start_doc_idxs, start_idxs, start_I, end_doc_idxs, end_idxs, end_I, start_scores, end_scores = self.search_dense(
+        start_doc_idxs, start_sec_idxs, start_para_idxs, start_idxs, start_I, end_doc_idxs, end_sec_idxs, end_para_idxs, end_idxs, end_I, start_scores, end_scores = self.search_dense(
             query,
             q_texts=q_texts,
             nprobe=nprobe,
@@ -403,7 +419,7 @@ class MIPS(object):
         # Search phrase
         start_time = time()
         outs = self.search_phrase(
-            query, start_doc_idxs, start_idxs, start_I, end_doc_idxs, end_idxs, end_I, start_scores, end_scores,
+            query, start_doc_idxs, start_sec_idxs, start_para_idxs, start_idxs, start_I, end_doc_idxs, end_sec_idxs, end_para_idxs, end_idxs, end_I, start_scores, end_scores,
             top_k=top_k, max_answer_length=max_answer_length, return_idxs=return_idxs,
         )
         logger.debug(f'Top-{top_k} phrase search: {time()-start_time:.3f}s')
