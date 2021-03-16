@@ -52,7 +52,7 @@ def get_args():
 
     coarse = 'hnsw' if args.hnsw else 'flat'
     args.index_name = '%d_%s_%s' % (args.num_clusters, coarse, args.fine_quant)
-    args.index_dir = os.path.join(args.dump_dir, 'start_zx', args.index_name)
+    args.index_dir = os.path.join(args.dump_dir, 'start', args.index_name)
 
     args.quantizer_path = os.path.join(args.index_dir, args.quantizer_path)
     args.trained_index_path = os.path.join(args.index_dir, args.trained_index_path)
