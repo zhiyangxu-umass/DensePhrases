@@ -217,13 +217,15 @@ index-large: dump-dir
 
 # Parallel add for large-scale on-disk IVFSQ (start, end = file idx)
 index-add: dump-dir
+	export MKL_THREADING_LAYER=GNU
 	export MKL_SERVICE_FORCE_INTEL=1
 	python -m densephrases.experiments.parallel.add_to_index \
 		--dump_dir $(DUMP_DIR) \
 		--num_clusters 1048576 \
-		--cuda \
+		--num_gpus 30 \
 		--start $(START) \
-		--end $(END)
+		--end $(END) \
+		--cuda
 
 # Merge for large-scale on-disk IVFSQ
 index-merge: dump-dir

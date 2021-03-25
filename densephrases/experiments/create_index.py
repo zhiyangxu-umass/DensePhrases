@@ -46,7 +46,7 @@ def get_args():
     parser.add_argument('--vec_sample_ratio', default=0.2, type=float)
     parser.add_argument('--cuda', default=False, action='store_true')
     parser.add_argument('--replace', default=False, action='store_true')
-    parser.add_argument('--num_docs_per_add', default=2000, type=int)
+    parser.add_argument('--num_docs_per_add', default=500, type=int)
 
     args = parser.parse_args()
 
