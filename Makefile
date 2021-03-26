@@ -242,7 +242,8 @@ index-large-pq: dump-dir
 		--replace \
 		--num_clusters 1048576 \
 		--fine_quant PQ96_8 \
-		--cuda
+		--cuda \
+		--index_dir_name start-pq 
 
 # Use if for large-scale dump evaluation
 eval-dump: model-name dump-dir nq-single-data

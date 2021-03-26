@@ -25,6 +25,7 @@ def get_args():
     parser.add_argument('--offset', default=0, type=int)
 
     # relative paths in dump_dir/index_name
+    parser.add_argument('--index_dir_name', default='start')
     parser.add_argument('--quantizer_path', default='quantizer.faiss')
     parser.add_argument('--trained_index_path', default='trained.faiss')
     parser.add_argument('--index_path', default='index.faiss')
@@ -52,7 +53,7 @@ def get_args():
 
     coarse = 'hnsw' if args.hnsw else 'flat'
     args.index_name = '%d_%s_%s' % (args.num_clusters, coarse, args.fine_quant)
-    args.index_dir = os.path.join(args.dump_dir, 'start', args.index_name)
+    args.index_dir = os.path.join(args.dump_dir, args.index_dir_name, args.index_name)
 
     args.quantizer_path = os.path.join(args.index_dir, args.quantizer_path)
     args.trained_index_path = os.path.join(args.index_dir, args.trained_index_path)
