@@ -283,6 +283,8 @@ def merge_indexes(subindex_dir, trained_index_path, target_index_path, target_id
                     group = out.create_group(offset)
                     group.create_dataset('doc', data=in_[key]['doc'])
                     group.create_dataset('word', data=in_[key]['word'])
+                    group.create_dataset('sec',data=in_[key]['sec'])
+                    group.create_dataset('para', data=in_[key]['para'])
 
     print('loading invlists')
     ivfs = []
