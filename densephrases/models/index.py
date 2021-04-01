@@ -113,7 +113,7 @@ class MIPS(object):
         max_idx = self.max_idx
         offsets = (I / max_idx).astype(np.int64) * int(max_idx)
         idxs = I % int(max_idx)
-        print("I=", I, "max_idx", max_idx, "offsets", offsets, "idxs=", idxs)
+        #print("I=", I, "max_idx", max_idx, "offsets", offsets, "idxs=", idxs)
         doc = np.array(
             [[self.idx_f[str(offset)]['doc'][idx] for offset, idx in zip(oo, ii)] for oo, ii in zip(offsets, idxs)])
         word = np.array([[self.idx_f[str(offset)]['word'][idx] for offset, idx in zip(oo, ii)] for oo, ii in
@@ -122,7 +122,7 @@ class MIPS(object):
                          zip(offsets, idxs)])
         para = np.array([[self.idx_f[str(offset)]['para'][idx] for offset, idx in zip(oo, ii)] for oo, ii in
                          zip(offsets, idxs)])
-        print("doc=", doc, "word", word, "sec", sec, "para=", para)
+        #print("doc=", doc, "word", word, "sec", sec, "para=", para)
         return doc, sec, para, word
 
     def get_doc_group(self, doc_idx):

@@ -197,27 +197,45 @@ def eval_inmemory(args, mips=None, query_encoder=None, tokenizer=None):
     sec_idxs = []
     para_idxs = []
     for q_idx in tqdm(range(0, len(questions), step)):
-        result = mips.search(
-            query_vec[q_idx:q_idx+step],
-            q_texts=questions[q_idx:q_idx+step], nprobe=args.nprobe,
-            top_k=args.top_k, max_answer_length=args.max_answer_length,
-        )
-        prediction = [[ret['answer'] for ret in out] if len(out) > 0 else [''] for out in result]
-        evidence = [[ret['context'] for ret in out] if len(out) > 0 else [''] for out in result]
-        title = [[ret['title'] for ret in out] if len(out) > 0 else [['']] for out in result]
-        wiki_idx = [[ret['wiki_idx'] for ret in out] if len(out) > 0 else [['']] for out in result]
-        sec_title = [[ret['sec_title'] for ret in out] if len(out) > 0 else [['']] for out in result]
-        sec_idx = [[ret['sec_idx'] for ret in out] if len(out) > 0 else [['']] for out in result]
-        para_idx = [[ret['para_idx'] for ret in out] if len(out) > 0 else [['']] for out in result]
-        score = [[ret['score'] for ret in out] if len(out) > 0 else [-1e10] for out in result]
-        predictions += prediction
-        evidences += evidence
-        titles += title
-        scores += score
-        wiki_idxs += wiki_idx
-        sec_titles += sec_title
-        sec_idxs += sec_idx
-        para_idxs += para_idx
+        try:
+            result = mips.search(
+                query_vec[q_idx:q_idx+step],
+                q_texts=questions[q_idx:q_idx+step], nprobe=args.nprobe,
+                top_k=args.top_k, max_answer_length=args.max_answer_length,
+            )
+            prediction = [[ret['answer'] for ret in out] if len(out) > 0 else [''] for out in result]
+            evidence = [[ret['context'] for ret in out] if len(out) > 0 else [''] for out in result]
+            title = [[ret['title'] for ret in out] if len(out) > 0 else [['']] for out in result]
+            wiki_idx = [[ret['wiki_idx'] for ret in out] if len(out) > 0 else [['']] for out in result]
+            sec_title = [[ret['sec_title'] for ret in out] if len(out) > 0 else [['']] for out in result]
+            sec_idx = [[ret['sec_idx'] for ret in out] if len(out) > 0 else [['']] for out in result]
+            para_idx = [[ret['para_idx'] for ret in out] if len(out) > 0 else [['']] for out in result]
+            score = [[ret['score'] for ret in out] if len(out) > 0 else [-1e10] for out in result]
+            predictions += prediction
+            evidences += evidence
+            titles += title
+            scores += score
+            wiki_idxs += wiki_idx
+            sec_titles += sec_title
+            sec_idxs += sec_idx
+            para_idxs += para_idx
+            with open('./prediction_eval_dump.jsonl','a') as fout:
+                o = {}
+                o['q_id'] = q_idx
+                o['question'] = questions[q_idx:q_idx+step]
+                o['gt_answer'] = answers[q_idx:q_idx+step]
+                o['pred_answer'] = prediction
+                o['evidence'] = evidence
+                o['score'] = score
+                o['title'] = title
+                o['sec_title'] = sec_title
+                o['sec_id'] =sec_idx
+                o['para_id'] =para_idx
+                fout.write(json.dumps(o)+'\n')
+            print('write one output')
+        except:
+            print('error')
+            continue
 
     logger.info(f"Avg. {sum(mips.num_docs_list)/len(mips.num_docs_list):.2f} number of docs per query")
     eval_fn = evaluate_results if not args.is_kilt else evaluate_results_kilt

@@ -306,7 +306,6 @@ zsre-open-data: kilt-options
 	$(eval OPTIONS=$(OPTIONS) --kilt_gold_path $(DPH_DATA_DIR)/kilt/zsre/structured_zeroshot-dev-kilt.jsonl)
 benchmark-data:
 	$(eval TEST_DATA=densephrases/scripts/benchmark/data/nq_1000_dev_denspi.json)
-
 eval-od: dump-dir model-name nq-open-data
 	python -m densephrases.experiments.run_open \
 		--run_mode eval_inmemory \
