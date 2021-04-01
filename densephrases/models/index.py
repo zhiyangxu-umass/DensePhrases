@@ -96,7 +96,9 @@ class MIPS(object):
         word2char_end = np.frombuffer(blosc.decompress(self.doc_groups[doc_idx]['word2char_end']), dtypes['word2char_end'])
         f2o_start = np.frombuffer(blosc.decompress(self.doc_groups[doc_idx]['f2o_start']), dtypes['f2o_start'])
         context = blosc.decompress(self.doc_groups[doc_idx]['context']).decode('utf-8')
-        title = self.doc_groups[doc_idx]['title'] # not compressed
+        wikipedia_ids = np.frombuffer(blosc.decompress(self.doc_groups[doc_idx]['wikipedia_ids']), dtypes['wikipedia_ids'])
+        section_titles = np.frombuffer(blosc.decompress(self.doc_groups[doc_idx]['section_titles']), dtypes['section_titles'])
+        title = self.doc_groups[doc_idx]['title'].decode('utf-8')
 
         return {
             'word2char_start': word2char_start,
@@ -104,6 +106,8 @@ class MIPS(object):
             'f2o_start': f2o_start,
             'context': context,
             'title': title,
+            'wikipedia_ids': wikipedia_ids,
+            'section_titles': section_titles,
             'offset': -2,
             'scale': 20,
         }

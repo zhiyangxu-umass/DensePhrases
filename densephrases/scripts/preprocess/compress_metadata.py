@@ -19,11 +19,15 @@ def get_size(d):
         f2o_start_size = sys.getsizeof(d[i]['f2o_start'])
         context_size = sys.getsizeof(d[i]['context'])
         title_size = sys.getsizeof(d[i]['title'])
+        wiki_ids_size = sys.getsizeof(d[i]['wikipedia_ids'])
+        sec_titles_size = sys.getsizeof(d[i]['section_titles'])
         size+=word2char_start_size
         size+=word2char_end_size
         size+=f2o_start_size
         size+=context_size
         size+=title_size
+        size+=wiki_ids_size
+        size+=sec_titles_size
 
     return size
 
@@ -36,20 +40,29 @@ def compress(d):
         f2o_start = d[i]['f2o_start']
         context=d[i]['context']
         title=d[i]['title']
+        wikipedia_ids = d[i]['wikipedia_ids']
+        sec_titles = d[i]['section_titles']
 
         # save type to use when decompressing
         type1= word2char_start.dtype
         type2= word2char_end.dtype
         type3= f2o_start.dtype
+        type4= wikipedia_ids.dtype
+        type5 = sec_titles.dtype
         
         d[i]['word2char_start'] = blosc.compress(word2char_start, typesize=1,cname='zlib')
         d[i]['word2char_end'] = blosc.compress(word2char_end, typesize=1,cname='zlib')
         d[i]['f2o_start'] = blosc.compress(f2o_start, typesize=1,cname='zlib')
         d[i]['context'] = blosc.compress(context.encode('utf-8'),cname='zlib')
+        d[i]['title'] = blosc.compress(context.encode('utf-8'), cname='zlib')
+        d[i]['wikipedia_ids'] = blosc.compress(context.encode('utf-8'), typesize=1, cname='zlib')
+        d[i]['section_titles'] = blosc.compress(context.encode('utf-8'), typesize=1, cname='zlib')
         d[i]['dtypes']={
                 'word2char_start':type1,
                 'word2char_end':type2,
-                'f2o_start':type3
+                'f2o_start':type3,
+                'wikipedia_ids': type4,
+                'section_titles': type5
         }
 
         # check if compression is lossless
@@ -58,11 +71,17 @@ def compress(d):
             decompressed_word2char_end = np.frombuffer(blosc.decompress(d[i]['word2char_end']), type2)
             decompressed_f2o_start = np.frombuffer(blosc.decompress(d[i]['f2o_start']), type3)
             decompressed_context = blosc.decompress(d[i]['context']).decode('utf-8')
+            decompressed_wikipedia_ids = np.frombuffer(blosc.decompress(d[i]['wikipedia_ids']), type4)
+            decompressed_section_titles = np.frombuffer(blosc.decompress(d[i]['section_titles']), type5)
+            decompressed_title = blosc.decompress(d[i]['title']).decode('utf-8')
 
             assert ((word2char_start == decompressed_word2char_start).all())
             assert ((word2char_end == decompressed_word2char_end).all())
             assert ((f2o_start ==decompressed_f2o_start).all())
+            assert ((wikipedia_ids == decompressed_wikipedia_ids).all())
+            assert ((sec_titles == decompressed_section_titles).all())
             assert (context == decompressed_context)
+            assert (title == decompressed_title)
         except Exception as e:
             print(e)
             traceback.print_exc()
@@ -75,7 +94,7 @@ def load_doc_groups(phrase_dump_dir):
     )
     doc_groups = {}
     types = ['word2char_start', 'word2char_end', 'f2o_start']
-    attrs = ['context', 'title']
+    attrs = ['context', 'title', 'section_titles', 'wikipedia_ids']
     phrase_dumps = [h5py.File(path, 'r') for path in phrase_dump_paths]
     phrase_dumps = phrase_dumps[:1]
     for path in tqdm(phrase_dump_paths, desc='loading doc groups'):
