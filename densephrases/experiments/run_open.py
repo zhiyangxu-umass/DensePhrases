@@ -196,6 +196,8 @@ def eval_inmemory(args, mips=None, query_encoder=None, tokenizer=None):
     sec_titles = []
     sec_idxs = []
     para_idxs = []
+    eval_file = args.pred_output_file
+    open(eval_file, 'w').close()
     for q_idx in tqdm(range(0, len(questions), step)):
         try:
             result = mips.search(
@@ -219,9 +221,9 @@ def eval_inmemory(args, mips=None, query_encoder=None, tokenizer=None):
             sec_titles += sec_title
             sec_idxs += sec_idx
             para_idxs += para_idx
-            with open('./prediction_eval_dump.jsonl','a') as fout:
+            with open(eval_file,'a') as fout:
                 o = {}
-                o['q_id'] = q_idx
+                o['q_id'] = qids[q_idx:q_idx+step]
                 o['question'] = questions[q_idx:q_idx+step]
                 o['gt_answer'] = answers[q_idx:q_idx+step]
                 o['pred_answer'] = prediction
@@ -233,8 +235,8 @@ def eval_inmemory(args, mips=None, query_encoder=None, tokenizer=None):
                 o['para_id'] =para_idx
                 fout.write(json.dumps(o)+'\n')
             print('write one output')
-        except:
-            print('error')
+        except Exception as e:
+            print('Error during evaluation:', e)
             continue
 
     logger.info(f"Avg. {sum(mips.num_docs_list)/len(mips.num_docs_list):.2f} number of docs per query")
@@ -723,6 +725,7 @@ if __name__ == '__main__':
     # Evaluation
     parser.add_argument('--dev_path', default='open-qa/nq-open/dev_preprocessed.json')
     parser.add_argument('--test_path', default='open-qa/nq-open/test_preprocessed.json')
+    parser.add_argument('--pred_output_file', default='./prediction_eval_dump.jsonl')
     parser.add_argument('--candidate_path', default=None)
     parser.add_argument('--regex', default=False, action='store_true')
     parser.add_argument('--eval_batch_size', default=10, type=int)
