@@ -21,3 +21,5 @@ eval_logger.txt
 /wandb
 
 Makefile
+
+prediction_eval_dump.jsonl
