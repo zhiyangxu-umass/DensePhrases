@@ -121,6 +121,7 @@ eval-sod: model-name
 		--index_dir start/256_flat_SQ4 \
 		--query_encoder_path $(DPH_SAVE_DIR)/$(MODEL_NAME) \
 		--test_path $(DPH_DATA_DIR)/$(SOD_DATA) \
+		--pred_output_file ./prediction_eval_dump.jsonl \
 		$(OPTIONS)
 
 # Create IVFPQ index for Semi-OD
@@ -140,6 +141,7 @@ eval-sod-pq: model-name
 		--dump_dir $(DPH_SAVE_DIR)/$(MODEL_NAME)/dump \
 		--index_dir start/256_flat_PQ96_8 \
 		--query_encoder_path $(DPH_SAVE_DIR)/$(MODEL_NAME) \
+		--pred_output_file ./prediction_eval_dump.jsonl \
 		--test_path $(DPH_DATA_DIR)/$(SOD_DATA) \
 		$(OPTIONS)
 
@@ -258,6 +260,7 @@ eval-dump: model-name dump-dir nq-single-data
 		--dump_dir $(DUMP_DIR) \
 		--index_dir start/1048576_flat_SQ4 \
 		--query_encoder_path $(DPH_SAVE_DIR)/$(MODEL_NAME) \
+		--pred_output_file ./prediction_eval_dump.jsonl \
 		--test_path $(DPH_DATA_DIR)/$(SOD_DATA) \
 		$(OPTIONS)
 
@@ -319,6 +322,7 @@ eval-od: dump-dir model-name nq-open-data
 		--cuda \
 		--eval_batch_size 12 \
 		--dump_dir $(DUMP_DIR) \
+		--pred_output_file ./prediction_eval_dump.jsonl \
 		--phrase_dump_dir /mnt/nfs/work1/696ds-s21/hmalara/phrase \
 		--index_dir start/1048576_flat_SQ4 \
 		--query_encoder_path $(DPH_SAVE_DIR)/$(MODEL_NAME) \
