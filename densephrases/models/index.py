@@ -22,8 +22,7 @@ logger = logging.getLogger(__name__)
 
 class MIPS(object):
     def __init__(self, phrase_dump_dir, index_path, idx2id_path, cuda=False, logging_level=logging.INFO):
-        self.phrase_dump_dir = "/mnt/nfs/work1/696ds-s21/hmalara/phrase"
-        #phrase_dump_dir
+        self.phrase_dump_dir = phrase_dump_dir
 
         # Read index
         self.index = {}

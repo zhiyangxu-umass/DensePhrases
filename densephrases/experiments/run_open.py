@@ -96,7 +96,7 @@ def get_query2vec(query_encoder, tokenizer, args, batch_size=64):
 
 def load_phrase_index(args, load_light=False):
     # Configure paths for index serving
-    phrase_dump_dir = os.path.join(args.dump_dir, args.phrase_dir)
+    phrase_dump_dir = args.phrase_dump_dir
     index_dir = os.path.join(args.dump_dir, args.index_dir)
     index_path = os.path.join(index_dir, args.index_name)
     idx2id_path = os.path.join(index_dir, args.idx2id_name)
@@ -687,6 +687,7 @@ if __name__ == '__main__':
 
     # PhraseIndex
     parser.add_argument('--dump_dir', default='dump')
+    parser.add_argument('--phrase_dump_dir', default=None)
     parser.add_argument('--phrase_dir', default='phrase')
     parser.add_argument('--index_dir', default='256_flat_SQ4')
     parser.add_argument('--index_name', default='index.faiss')
@@ -738,6 +739,9 @@ if __name__ == '__main__':
     parser.add_argument('--wandb', default=False, action='store_true')
     parser.add_argument('--seed', default=1992, type=int)
     args = parser.parse_args()
+
+    if args.phrase_dump_dir is None:
+        args.phrase_dump_dir = os.path.join(args.dump_dir, args.phrase_dir)
 
     # Seed for reproducibility
     random.seed(args.seed)

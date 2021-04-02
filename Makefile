@@ -210,6 +210,7 @@ dump-large: model-name
 index-large: dump-dir
 	python -m densephrases.experiments.create_index \
 		$(DUMP_DIR) all \
+		--phrase_dump_dir /mnt/nfs/work1/696ds-s21/hmalara/phrase \
 		--replace \
 		--num_clusters 16384 \
 		--fine_quant SQ4 \
@@ -221,6 +222,7 @@ index-add: dump-dir
 	export MKL_SERVICE_FORCE_INTEL=1
 	python -m densephrases.experiments.parallel.add_to_index \
 		--dump_dir $(DUMP_DIR) \
+		--phrase_dump_dir /mnt/nfs/work1/696ds-s21/hmalara/phrase \
 		--num_clusters 1048576 \
 		--num_gpus 30 \
 		--start $(START) \
@@ -231,6 +233,7 @@ index-add: dump-dir
 index-merge: dump-dir
 	python -m densephrases.experiments.create_index \
 	$(DUMP_DIR) merge \
+	--phrase_dump_dir /mnt/nfs/work1/696ds-s21/hmalara/phrase \
 	--num_clusters 1048576 \
 	--replace \
 	--fine_quant SQ4
@@ -239,6 +242,7 @@ index-merge: dump-dir
 index-large-pq: dump-dir
 	python -m densephrases.experiments.create_index \
 		$(DUMP_DIR) all \
+		--phrase_dump_dir /mnt/nfs/work1/696ds-s21/hmalara/phrase \
 		--replace \
 		--num_clusters 1048576 \
 		--fine_quant PQ96_8 \
@@ -250,6 +254,7 @@ eval-dump: model-name dump-dir nq-single-data
 	python -m densephrases.experiments.run_open \
 		--run_mode eval_inmemory \
 		--cuda \
+		--phrase_dump_dir /mnt/nfs/work1/696ds-s21/hmalara/phrase \
 		--dump_dir $(DUMP_DIR) \
 		--index_dir start/1048576_flat_SQ4 \
 		--query_encoder_path $(DPH_SAVE_DIR)/$(MODEL_NAME) \
@@ -314,6 +319,7 @@ eval-od: dump-dir model-name nq-open-data
 		--cuda \
 		--eval_batch_size 12 \
 		--dump_dir $(DUMP_DIR) \
+		--phrase_dump_dir /mnt/nfs/work1/696ds-s21/hmalara/phrase \
 		--index_dir start/1048576_flat_SQ4 \
 		--query_encoder_path $(DPH_SAVE_DIR)/$(MODEL_NAME) \
 		--test_path $(DPH_DATA_DIR)/$(TEST_DATA) \

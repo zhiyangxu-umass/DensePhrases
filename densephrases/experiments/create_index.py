@@ -17,6 +17,7 @@ def get_args():
     parser.add_argument('dump_dir')
     parser.add_argument('stage')
 
+    parser.add_argument('--phrase_dump_dir', default=None, help='If dump dir is different from the index dir. ')
     # large-scale add option
     parser.add_argument('--dump_paths', default=None,
                         help='Relative to `dump_dir/phrase`. '
@@ -54,6 +55,8 @@ def get_args():
     coarse = 'hnsw' if args.hnsw else 'flat'
     args.index_name = '%d_%s_%s' % (args.num_clusters, coarse, args.fine_quant)
     args.index_dir = os.path.join(args.dump_dir, args.index_dir_name, args.index_name)
+    if args.phrase_dump_dir is None:
+        args.phrase_dump_dir = os.path.join(args.dump_dir, 'phrase')
 
     args.quantizer_path = os.path.join(args.index_dir, args.quantizer_path)
     args.trained_index_path = os.path.join(args.index_dir, args.trained_index_path)
@@ -64,7 +67,7 @@ def get_args():
         args.index_path = os.path.join(args.index_dir, args.index_path)
         args.idx2id_path = os.path.join(args.index_dir, args.idx2id_path)
     else:
-        args.dump_paths = [os.path.join(args.dump_dir, 'phrase', path) for path in args.dump_paths.split(',')]
+        args.dump_paths = [os.path.join(args.phrase_dump_dir, path) for path in args.dump_paths.split(',')]
         args.index_path = os.path.join(args.subindex_dir, '%d.faiss' % args.offset)
         args.idx2id_path = os.path.join(args.subindex_dir, '%d.hdf5' % args.offset)
 
@@ -327,8 +330,8 @@ def merge_indexes(subindex_dir, trained_index_path, target_index_path, target_id
 
 
 def run_index(args):
-    dump_names = os.listdir(os.path.join(args.dump_dir, 'phrase'))
-    dump_paths = sorted([os.path.join(args.dump_dir, 'phrase', name) for name in dump_names if name.endswith('.hdf5')])
+    dump_names = os.listdir(args.phrase_dump_dir)
+    dump_paths = sorted([os.path.join(args.phrase_dump_dir, name) for name in dump_names if name.endswith('.hdf5')])
 
     data = None
     if args.stage in ['all', 'coarse']:

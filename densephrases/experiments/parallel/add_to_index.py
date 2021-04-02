@@ -29,6 +29,7 @@ def run_add_to_index(args):
                 "densephrases.experiments.create_index",
                 f"{args.dump_dir}",
                 "add",
+                "--phrase_dump_dir", f"{args.phrase_dump_dir}",
                 "--fine_quant", "SQ4",
                 "--dump_paths", f"{dump_paths}",
                 "--offset", f"{offset_}",
@@ -36,7 +37,7 @@ def run_add_to_index(args):
                 f"{'--cuda' if args.cuda else ''}"]
 
 
-    dir_ = os.path.join(args.dump_dir, 'phrase')
+    dir_ = args.phrase_dump_dir if args.phrase_dump_dir is not None else os.path.join(args.dump_dir, 'phrase')
     names = os.listdir(dir_)
     bins = bin_names(dir_, names, args.num_gpus)
     offsets = [args.max_num_per_file * each for each in range(len(bins))]
@@ -56,6 +57,7 @@ def run_add_to_index(args):
 def get_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('--dump_dir', default='dump/76_dev-1B-c')
+    parser.add_argument('--phrase_dump_dir', default=None, help='If dump dir is different from the index dir. ')
     parser.add_argument('--num_cpus', default=4, type=int)
     parser.add_argument('--num_gpus', default=60, type=int)
     parser.add_argument('--mem_size', default=40, type=int, help='mem size in GB')
