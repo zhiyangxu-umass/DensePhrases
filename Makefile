@@ -259,7 +259,7 @@ eval-dump: model-name dump-dir nq-single-data
 # Compressed metadata to load it on RAM (only use for PQ)
 compress-meta: dump-dir
 	python -m densephrases.scripts.preprocess.compress_metadata \
-		--input_dump_dir $(DUMP_DIR)/phrase \
+		--input_dump_dir /mnt/nfs/work1/696ds-s21/hmalara/phrase \
 		--output_dir $(DUMP_DIR)
 
 ############################## Open-domain Search & Query-side Fine-tuning ###################################
