@@ -34,9 +34,9 @@ with jsonlines.open('nq-dev-kilt.jsonl') as reader:
 pred_list = []
 topK = 10
 
-with jsonlines.open('prediction_all.jsonl') as reader:
+with jsonlines.open('prediction.jsonl') as reader:
     for pred_obj in reader:
-        for i in range(0,12):
+        for i in range(0,len(pred_obj["question"])):
             temp = {}
             temp["question"] = pred_obj["question"][i]
             temp["score_list"] = pred_obj["score"][i]
@@ -69,7 +69,7 @@ pred_dict = {}
 for pred in pred_list :
     question = (pred['question'].lower()).strip()    
     pred_dict[question] = getPredAnswerList(pred)
-    
+print(len(pred_dict))
 compare_list = []
     
 for question in list(pred_dict.keys()) :
