@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 
 
 class MIPS(object):
-    def __init__(self, phrase_dump_dir, index_path, idx2id_path, cuda=False, logging_level=logging.INFO):
+    def __init__(self, phrase_dump_dir, index_path, idx2id_path, extra_emb_path='/mnt/nfs/scratch1/hmalara/DensePhrase_Harsh_Repo/DensePhrases/dph-data/kilt_ks_wikidump/title_emb', cuda=False, logging_level=logging.INFO):
         self.phrase_dump_dir = phrase_dump_dir
 
         # Read index
@@ -38,6 +38,15 @@ class MIPS(object):
         self.offset = None
         self.scale = None
         self.doc_groups = None
+
+        # Read wiki2id
+        self.title_weight = 0.1
+        logger.info(f"reading extra emb from: {extra_emb_path}")
+        self.wiki2id_ = json.load(open(os.path.join(extra_emb_path,'wiki2idx.json'),'r'))
+        logger.info(f"length of wiki2idx: {len(self.wiki2id_)}")
+        self.title_emb = np.load(os.path.join(extra_emb_path,'title_emb.npy'))
+        logger.info(f"shape of title emb: {self.title_emb.shape}")
+        self.title_text = json.load(open(os.path.join(extra_emb_path,'title_text.json'),'r'))
 
         # Options
         logger.setLevel(logging_level)
@@ -199,7 +208,7 @@ class MIPS(object):
         num_queries = query.shape[0]
         query = np.reshape(np.tile(np.expand_dims(query, 1), [1, top_k, 1]), [-1, query.shape[1]])
         q_idxs = np.reshape(np.tile(np.expand_dims(np.arange(num_queries), 1), [1, top_k*2]), [-1])
-        start_doc_idxs = np.reshape(start_doc_idxs, [-1])
+        start_doc_idxs = np.reshape(start_doc_idxs, [-1]) #batch x top-k, 1
         start_sec_idxs = np.reshape(start_sec_idxs, [-1])
         start_para_idxs = np.reshape(start_para_idxs, [-1])
         start_idxs = np.reshape(start_idxs, [-1])
@@ -215,7 +224,7 @@ class MIPS(object):
 
         # Set default vec
         start_time = time()
-        query_start, query_end = np.split(query, 2, axis=1)
+        query_start, query_end = np.split(query, 2, axis=1) # batch x top-k, size
         bs = query_start.shape[1]
         default_doc = [doc_idx for doc_idx in set(start_doc_idxs.tolist() + end_doc_idxs.tolist()) if doc_idx >= 0][0]
         default_vec = np.zeros(bs).astype(np.float32)
@@ -240,6 +249,72 @@ class MIPS(object):
                     'scale': 20,
                 } for doc_idx in set(start_doc_idxs.tolist() + end_doc_idxs.tolist()) if doc_idx >= 0
             }
+
+
+
+
+            # read title emb
+            print("group start title embs")
+            start_title_emb=[]
+            for doc_idx in start_doc_idxs.tolist():
+                print('doc_idx',doc_idx)
+                title_id = self.wiki2id_[groups_all[doc_idx]['wikipedia_ids']]
+                print('title id ',title_id)
+                emb_ = self.title_emb[title_id]  
+                start_title_emb.append(emb_)
+            start_title_emb = np.stack(start_title_emb,axis=0)
+            print("start shape ",start_title_emb.shape)
+            start_title_emb, temp = np.split(start_title_emb, 2, axis=1) #batch x top-k, size
+            print("start shape ",start_title_emb.shape)
+
+            print("group end title embs")
+            end_title_emb=[]
+            for doc_idx in end_doc_idxs.tolist():
+                print('doc_idx',doc_idx)
+                title_id = self.wiki2id_[groups_all[doc_idx]['wikipedia_ids']]
+                print('title id ',title_id)
+                emb_ = self.title_emb[title_id]  
+                end_title_emb.append(emb_)
+            end_title_emb = np.stack(end_title_emb,axis=0)
+            print("end shape ",end_title_emb.shape)
+            temp, end_title_emb = np.split(end_title_emb, 2, axis=1)
+            print("end shape ",end_title_emb.shape)
+
+            # start_title_emb = np.concatenate([ 
+            #     self.title_emb[self.wiki2id_[groups_all[doc_idx]['wikipedia_ids']]] for doc_idx in start_doc_idxs.tolist()
+            #     ], axis=0)
+            # start_title_emb, _ = np.split(start_title_emb, 2, axis=1) #batch x top-k, size
+            # end_title_emb = np.concatenate([ 
+            #     self.title_emb[self.wiki2id_[groups_all[doc_idx]['wikipedia_ids']]] for doc_idx in end_doc_idxs.tolist()
+            #     ], axis=0)
+            # _, end_title_emb = np.split(end_title_emb, 2, axis=1)
+
+            # recompute start_scores
+            print("calculate start scores")
+            with torch.no_grad():
+                start_title_emb = torch.FloatTensor(start_title_emb).to(self.device)
+                query_start = torch.FloatTensor(query_start).to(self.device)
+                print('query_start shape', query_start.shape)
+                start_title_scores = (query_start * start_title_emb).sum(1).cpu().numpy()
+                query_start = query_start.cpu().numpy()
+                print('start title: ', start_title_scores)
+                print('start: ', start_scores)
+                start_scores = (1-self.title_weight)*start_scores + self.title_weight * start_title_scores
+            # recompute end_scores
+            print("calculate end scores")
+            with torch.no_grad():
+                end_title_emb = torch.FloatTensor(end_title_emb).to(self.device)
+                query_end = torch.FloatTensor(query_end).to(self.device)
+                print('query_end shape', query_end.shape)
+                end_title_scores = (query_end * end_title_emb).sum(1).cpu().numpy()
+                query_end = query_end.cpu().numpy()
+                print('end title: ', end_title_scores)
+                print('end: ', end_scores)
+                end_scores = (1-self.title_weight)*end_scores + self.title_weight * end_title_scores
+
+
+
+
             groups_start = [{'end': np.array([
                 groups[doc_idx]['start'][ii] for ii in range(
                     start_idx, min(start_idx+max_answer_length, len(groups[doc_idx]['start'])))
@@ -308,7 +383,8 @@ class MIPS(object):
             end = torch.FloatTensor(end).to(self.device)
             query_end = torch.FloatTensor(query_end).to(self.device)
             new_end_scores = (query_end.unsqueeze(1) * end).sum(2).cpu().numpy()
-        scores1 = np.expand_dims(start_scores, 1) + new_end_scores + end_mask  # [Q, L]
+        # also consider title in the new scores
+        scores1 = np.expand_dims(start_scores, 1) + (1-self.title_weight)*new_end_scores + self.title_weight * np.expand_dims(start_title_scores,1) + end_mask  # [Q, L]
         pred_end_idxs = np.stack([each[idx] for each, idx in zip(new_end_idxs, np.argmax(scores1, 1))], 0)  # [Q]
         pred_end_vecs = np.stack([each[idx] for each, idx in zip(end.cpu().numpy(), np.argmax(scores1, 1))], 0)
         logger.debug(f'2) {time()-start_time:.3f}s: find end')
@@ -332,7 +408,8 @@ class MIPS(object):
             start = torch.FloatTensor(start).to(self.device)
             query_start = torch.FloatTensor(query_start).to(self.device)
             new_start_scores = (query_start.unsqueeze(1) * start).sum(2).cpu().numpy()
-        scores2 = new_start_scores + np.expand_dims(end_scores, 1) + start_mask  # [Q, L]
+        # also consider title in the new scores
+        scores2 = (1-self.title_weight)*new_start_scores + self.title_weight * np.expand_dims(end_title_scores,1) + np.expand_dims(end_scores, 1) + start_mask  # [Q, L]
         pred_start_idxs = np.stack([each[idx] for each, idx in zip(new_start_idxs, np.argmax(scores2, 1))], 0)  # [Q]
         pred_start_vecs = np.stack([each[idx] for each, idx in zip(start.cpu().numpy(), np.argmax(scores2, 1))], 0)
         logger.debug(f'3) {time()-start_time:.3f}s: find start')
@@ -375,7 +452,6 @@ class MIPS(object):
             for group_idx, (doc_idx, sec_idx, para_idx, start_idx, end_idx, score) in enumerate(zip(
                 doc_idxs.tolist(), sec_idxs.tolist(), para_idxs.tolist() ,start_idxs.tolist(), end_idxs.tolist(), max_scores.tolist()))
         ]
-
         for each in out:
             each['answer'] = each['context'][each['start_pos']:each['end_pos']]
         out = [self.adjust(each) for each in out]
