@@ -226,7 +226,7 @@ index-add: dump-dir
 		--dump_dir $(DUMP_DIR) \
 		--phrase_dump_dir /mnt/nfs/work1/696ds-s21/hmalara/phrase \
 		--num_clusters 1048576 \
-		--num_gpus 30 \
+		--num_gpus 6 \
 		--start $(START) \
 		--fine_quant PQ96_8 \
 		--index_dir_name start-pq \

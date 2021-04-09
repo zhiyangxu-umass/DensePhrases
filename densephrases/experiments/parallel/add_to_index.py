@@ -64,7 +64,7 @@ def get_args():
     parser.add_argument('--mem_size', default=40, type=int, help='mem size in GB')
     parser.add_argument('--num_clusters', default=4096, type=int)
     parser.add_argument('--draft', default=False, action='store_true')
-    parser.add_argument('--max_num_per_file', default=int(1e8), type=int,
+    parser.add_argument('--max_num_per_file', default=int(5e8), type=int,
                         help='max num per file for setting up good offsets.')
     parser.add_argument('--cuda', default=False, action='store_true')
     parser.add_argument('--fine_quant', default='SQ4',
