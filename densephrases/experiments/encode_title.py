@@ -87,26 +87,27 @@ def get_query2vec(query_encoder, tokenizer, args, batch_size=64):
         outs = []
         for qr_idx, question_result in enumerate(question_results):
             out = (
-                question_result.start_vec.tolist(), question_result.end_vec.tolist(), query_features[qr_idx].tokens_
+                question_result.start_vec, question_result.end_vec, query_features[qr_idx].tokens_
             )
             outs.append(out)
         return outs
     return query2vec
 
-def embed_all_query(questions, args, query_encoder, tokenizer, batch_size=48):
+def embed_all_title(title, args, query_encoder, tokenizer, batch_size=2048):
     query2vec = get_query2vec(
         query_encoder=query_encoder, tokenizer=tokenizer, args=args, batch_size=batch_size
     )
 
     all_outs = []
-    for q_idx in tqdm(range(0, len(questions), batch_size)):
-        outs = query2vec(questions[q_idx:q_idx+batch_size])
+    for q_idx in tqdm(range(0, len(title), batch_size)):
+        outs = query2vec(title[q_idx:q_idx+batch_size])
         all_outs += outs
     start = np.concatenate([out[0] for out in all_outs], 0)
     end = np.concatenate([out[1] for out in all_outs], 0)
+    tokens = [out[2] for out in all_outs]
     query_vec = np.concatenate([start, end], 1)
     logger.info(f'Query reps: {query_vec.shape}')
-    return query_vec
+    return query_vec, tokens
 
 def load_doc_title(title_path, args):
     """
@@ -118,8 +119,9 @@ def load_doc_title(title_path, args):
     with open(title_path) as fin:
         for idx, line in enumerate(fin):
             line = json.loads(line)
+            wiki2idx[line['wiki_id']] = idx 
             if args.combine:
-                text = line["title"]+" "+line["abstract"]
+                text = line["title"]+" "+line["abstract"][0]
             else:
                 text = line["title"]
             if args.do_lower_case:
@@ -128,17 +130,27 @@ def load_doc_title(title_path, args):
                 title.append(text)
     
     logger.info(f'Finish loading {len(title)} titles')
-    return title
+    return wiki2idx, title
 
 def create_title_emb(args, query_encoder=None, tokenizer=None):
-    titles = load_doc_title(args.title_path, args)
+    wiki2idx, titles = load_doc_title(args.title_path, args)
     if query_encoder is None:
         print(f'Query encoder will be loaded from {args.query_encoder_path}')
         device = 'cuda' if args.cuda else 'cpu'
         query_encoder, tokenizer = load_query_encoder(device, args)
-    title_vec = embed_all_query(questions, args, query_encoder, tokenizer)
+    title_vec, title_text = embed_all_title(titles, args, query_encoder, tokenizer)
+    out_dir = '/mnt/nfs/scratch1/hmalara/DensePhrase_Harsh_Repo/DensePhrases/dph-data/kilt_ks_wikidump/title_emb'
+    np.save(os.path.join(out_dir,'title_emb.npy'),title_vec)
+    with open(os.path.join(out_dir,'wiki2idx.json'),'w') as fout:
+        json.dump(wiki2idx,fout)
+    with open(os.path.join(out_dir,'title_text.json'),'w') as fout:
+        json.dump(title_text,fout)
+    
+
 
 if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    # QueryEncoder
     parser = argparse.ArgumentParser()
     # QueryEncoder
     parser.add_argument('--model_type', default='bert', type=str)
@@ -195,7 +207,7 @@ if __name__ == '__main__':
     parser.add_argument('--pred_output_file', default='./prediction_eval_dump.jsonl')
     parser.add_argument('--candidate_path', default=None)
     parser.add_argument('--regex', default=False, action='store_true')
-    parser.add_argument('--eval_batch_size', default=10, type=int)
+    parser.add_argument('--eval_batch_size', default=512, type=int)
 
     # Run mode
     parser.add_argument('--run_mode', default='train_query')
@@ -204,6 +216,8 @@ if __name__ == '__main__':
     parser.add_argument('--debug', default=False, action='store_true')
     parser.add_argument('--wandb', default=False, action='store_true')
     parser.add_argument('--seed', default=1992, type=int)
+    parser.add_argument("--title_path", default='/mnt/nfs/scratch1/hmalara/DensePhrase_Harsh_Repo/DensePhrases/dph-data/kilt_ks_wikidump/title_emb/titles.jsonl', type=str)
+    parser.add_argument('--combine', default=True, action='store_true')
     args = parser.parse_args()
 
     
@@ -213,9 +227,6 @@ if __name__ == '__main__':
     torch.manual_seed(args.seed)
     if torch.cuda.is_available():
         torch.cuda.manual_seed_all(args.seed)
-
-    
-    
-
+        create_title_emb(args)
     else:
         raise NotImplementedError
