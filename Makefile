@@ -229,7 +229,7 @@ index-add: dump-dir
 		--num_gpus 30 \
 		--start $(START) \
 		--fine_quant PQ96_8 \
-		--index_dir_name start-pq
+		--index_dir_name start-pq \
 		--end $(END) \
 		--cuda
 
