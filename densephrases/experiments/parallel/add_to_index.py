@@ -30,7 +30,8 @@ def run_add_to_index(args):
                 f"{args.dump_dir}",
                 "add",
                 "--phrase_dump_dir", f"{args.phrase_dump_dir}",
-                "--fine_quant", "SQ4",
+                "--index_dir_name", f"{args.index_dir_name}",
+                "--fine_quant", f"{args.fine_quant}",
                 "--dump_paths", f"{dump_paths}",
                 "--offset", f"{offset_}",
                 "--num_clusters", f"{args.num_clusters}",
@@ -66,6 +67,9 @@ def get_args():
     parser.add_argument('--max_num_per_file', default=int(1e8), type=int,
                         help='max num per file for setting up good offsets.')
     parser.add_argument('--cuda', default=False, action='store_true')
+    parser.add_argument('--fine_quant', default='SQ4',
+                        help='SQ4|PQ# where # is number of bytes per vector')
+    parser.add_argument('--index_dir_name', default='start')
     parser.add_argument('--start', default=0, type=int)
     parser.add_argument('--end', default=3, type=int)
     args = parser.parse_args()
