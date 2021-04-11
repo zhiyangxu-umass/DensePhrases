@@ -240,7 +240,8 @@ index-merge: dump-dir
 	--phrase_dump_dir /mnt/nfs/work1/696ds-s21/hmalara/phrase \
 	--num_clusters 1048576 \
 	--replace \
-	--fine_quant SQ4
+	--fine_quant PQ96_8 \
+	--index_dir_name start-pq
 
 # IVFPQ indexing (currently do not support parallelized add/merge)
 index-large-pq: dump-dir
