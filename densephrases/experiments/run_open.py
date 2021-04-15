@@ -107,6 +107,8 @@ def load_phrase_index(args, load_light=False):
         phrase_dump_dir=phrase_dump_dir,
         index_path=index_path,
         idx2id_path=idx2id_path,
+        extra_emb_path=args.extra_embed_path,
+        title_weight=args.title_embed_weight,
         cuda=args.cuda,
         logging_level=logging.DEBUG if args.debug else logging.INFO
     )
@@ -738,10 +740,19 @@ if __name__ == '__main__':
     parser.add_argument('--debug', default=False, action='store_true')
     parser.add_argument('--wandb', default=False, action='store_true')
     parser.add_argument('--seed', default=1992, type=int)
+
+    #reranking options
+    parser.add_argument('--rerank', default=False, action='store_true')
+    parser.add_argument('--extra_embed_path', default='/mnt/nfs/scratch1/hmalara/DensePhrase_Harsh_Repo/DensePhrases/dph-data/kilt_ks_wikidump/extra_emb')
+    parser.add_argument('--title_embed_weight', default=0.0, type=float)
+
     args = parser.parse_args()
 
     if args.phrase_dump_dir is None:
         args.phrase_dump_dir = os.path.join(args.dump_dir, args.phrase_dir)
+
+    if not args.rerank:
+        args.extra_embed_path = None
 
     # Seed for reproducibility
     random.seed(args.seed)

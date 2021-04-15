@@ -21,7 +21,8 @@ logger = logging.getLogger(__name__)
 
 
 class MIPS(object):
-    def __init__(self, phrase_dump_dir, index_path, idx2id_path, extra_emb_path='/mnt/nfs/scratch1/hmalara/DensePhrase_Harsh_Repo/DensePhrases/dph-data/kilt_ks_wikidump/title_emb', cuda=False, logging_level=logging.INFO):
+    def __init__(self, phrase_dump_dir, index_path, idx2id_path, extra_emb_path, title_weight=0.0, cuda=False,
+                 logging_level=logging.INFO):
         self.phrase_dump_dir = phrase_dump_dir
 
         # Read index
@@ -38,15 +39,17 @@ class MIPS(object):
         self.offset = None
         self.scale = None
         self.doc_groups = None
+        self.title_weight = title_weight
 
         # Read wiki2id
-        self.title_weight = 0.1
-        logger.info(f"reading extra emb from: {extra_emb_path}")
-        self.wiki2id_ = json.load(open(os.path.join(extra_emb_path,'wiki2idx.json'),'r'))
-        logger.info(f"length of wiki2idx: {len(self.wiki2id_)}")
-        self.title_emb = np.load(os.path.join(extra_emb_path,'title_emb.npy'))
-        logger.info(f"shape of title emb: {self.title_emb.shape}")
-        self.title_text = json.load(open(os.path.join(extra_emb_path,'title_text.json'),'r'))
+        if extra_emb_path:
+            logger.info(f"reading extra emb from: {extra_emb_path}")
+            self.wiki2id_ = json.load(open(os.path.join(extra_emb_path,'wiki2idx.json'),'r'))
+            logger.info(f"length of wiki2idx: {len(self.wiki2id_)}")
+            self.title_emb = np.load(os.path.join(extra_emb_path,'title_emb.npy'))
+            logger.info(f"shape of title emb: {self.title_emb.shape}")
+        else:
+            self.title_emb = None
 
         # Options
         logger.setLevel(logging_level)
@@ -250,67 +253,43 @@ class MIPS(object):
                 } for doc_idx in set(start_doc_idxs.tolist() + end_doc_idxs.tolist()) if doc_idx >= 0
             }
 
-
-
-
             # read title emb
-            print("group start title embs")
-            start_title_emb=[]
-            for doc_idx in start_doc_idxs.tolist():
-                print('doc_idx',doc_idx)
-                title_id = self.wiki2id_[groups_all[doc_idx]['wikipedia_ids']]
-                print('title id ',title_id)
-                emb_ = self.title_emb[title_id]  
-                start_title_emb.append(emb_)
-            start_title_emb = np.stack(start_title_emb,axis=0)
-            print("start shape ",start_title_emb.shape)
-            start_title_emb, temp = np.split(start_title_emb, 2, axis=1) #batch x top-k, size
-            print("start shape ",start_title_emb.shape)
+            if self.title_emb:
+                print("group start and end title embs")
+                title_emb_list=[]
+                for doc_idx in start_doc_idxs.tolist():
+                    print('doc_idx',doc_idx)
+                    title_id = self.wiki2id_[groups_all[doc_idx]['wikipedia_ids']]
+                    print('title id ',title_id)
+                    emb_ = self.title_emb[title_id]
+                    title_emb_list.append(emb_)
+                comb_title_emb = np.stack(title_emb_list,axis=0)
+                print("title emb np shape ",comb_title_emb.shape)
+                start_title_emb, end_title_emb = np.split(comb_title_emb, 2, axis=1) #batch x top-k, size
+                print("start shape ",start_title_emb.shape)
+                print("end shape ", end_title_emb.shape)
 
-            print("group end title embs")
-            end_title_emb=[]
-            for doc_idx in end_doc_idxs.tolist():
-                print('doc_idx',doc_idx)
-                title_id = self.wiki2id_[groups_all[doc_idx]['wikipedia_ids']]
-                print('title id ',title_id)
-                emb_ = self.title_emb[title_id]  
-                end_title_emb.append(emb_)
-            end_title_emb = np.stack(end_title_emb,axis=0)
-            print("end shape ",end_title_emb.shape)
-            temp, end_title_emb = np.split(end_title_emb, 2, axis=1)
-            print("end shape ",end_title_emb.shape)
 
-            # start_title_emb = np.concatenate([ 
-            #     self.title_emb[self.wiki2id_[groups_all[doc_idx]['wikipedia_ids']]] for doc_idx in start_doc_idxs.tolist()
-            #     ], axis=0)
-            # start_title_emb, _ = np.split(start_title_emb, 2, axis=1) #batch x top-k, size
-            # end_title_emb = np.concatenate([ 
-            #     self.title_emb[self.wiki2id_[groups_all[doc_idx]['wikipedia_ids']]] for doc_idx in end_doc_idxs.tolist()
-            #     ], axis=0)
-            # _, end_title_emb = np.split(end_title_emb, 2, axis=1)
 
-            # recompute start_scores
-            print("calculate start scores")
-            with torch.no_grad():
-                start_title_emb = torch.FloatTensor(start_title_emb).to(self.device)
-                query_start = torch.FloatTensor(query_start).to(self.device)
-                print('query_start shape', query_start.shape)
-                start_title_scores = (query_start * start_title_emb).sum(1).cpu().numpy()
-                query_start = query_start.cpu().numpy()
-                print('start title: ', start_title_scores)
-                print('start: ', start_scores)
-                start_scores = (1-self.title_weight)*start_scores + self.title_weight * start_title_scores
-            # recompute end_scores
-            print("calculate end scores")
-            with torch.no_grad():
-                end_title_emb = torch.FloatTensor(end_title_emb).to(self.device)
-                query_end = torch.FloatTensor(query_end).to(self.device)
-                print('query_end shape', query_end.shape)
-                end_title_scores = (query_end * end_title_emb).sum(1).cpu().numpy()
-                query_end = query_end.cpu().numpy()
-                print('end title: ', end_title_scores)
-                print('end: ', end_scores)
-                end_scores = (1-self.title_weight)*end_scores + self.title_weight * end_title_scores
+                with torch.no_grad():
+                    # recompute start_scores
+                    print("calculate start scores")
+                    start_title_emb = torch.FloatTensor(start_title_emb).to(self.device)
+                    query_start_t = torch.FloatTensor(query_start).to(self.device)
+                    print('query_start shape', query_start_t.shape)
+                    start_title_scores = (query_start_t * start_title_emb).sum(1).cpu().numpy()
+                    print('start title: ', start_title_scores)
+                    print('start: ', start_scores)
+                    start_scores = (1-self.title_weight)*start_scores + self.title_weight * start_title_scores
+                    # recompute end_scores
+                    print("calculate end scores")
+                    end_title_emb = torch.FloatTensor(end_title_emb).to(self.device)
+                    query_end_t = torch.FloatTensor(query_end).to(self.device)
+                    print('query_end shape', query_end_t.shape)
+                    end_title_scores = (query_end_t * end_title_emb).sum(1).cpu().numpy()
+                    print('end title: ', end_title_scores)
+                    print('end: ', end_scores)
+                    end_scores = (1-self.title_weight)*end_scores + self.title_weight * end_title_scores
 
 
 
