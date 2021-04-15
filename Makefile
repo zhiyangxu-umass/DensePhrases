@@ -328,6 +328,7 @@ eval-od-rerank: dump-dir model-name nq-open-data
 		--pred_output_file ./prediction_eval_dump.jsonl \
 		--phrase_dump_dir /mnt/nfs/work1/696ds-s21/hmalara/phrase \
 		--index_dir start/1048576_flat_SQ4 \
+		--index_offset 100000000 \
 		--query_encoder_path $(DPH_SAVE_DIR)/$(MODEL_NAME) \
 		--test_path $(DPH_DATA_DIR)/$(TEST_DATA) \
 		--rerank \

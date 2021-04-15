@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 
 
 class MIPS(object):
-    def __init__(self, phrase_dump_dir, index_path, idx2id_path, extra_emb_path, title_weight=0.0, cuda=False,
+    def __init__(self, phrase_dump_dir, index_path, idx2id_path, extra_emb_path, max_idx, title_weight=0.0, cuda=False,
                  logging_level=logging.INFO):
         self.phrase_dump_dir = phrase_dump_dir
 
@@ -29,7 +29,7 @@ class MIPS(object):
         self.index = {}
         logger.info(f'Reading {index_path}')
         self.index = faiss.read_index(index_path, faiss.IO_FLAG_ONDISK_SAME_DIR)
-        self.max_idx = 1e8 if 'PQ' not in index_path else 1e9
+        self.max_idx = max_idx
         logger.info(f'index ntotal: {self.index.ntotal} | PQ: {"PQ" in index_path}')
 
         # Read idx2id

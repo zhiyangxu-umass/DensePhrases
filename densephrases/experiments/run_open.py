@@ -108,6 +108,7 @@ def load_phrase_index(args, load_light=False):
         index_path=index_path,
         idx2id_path=idx2id_path,
         extra_emb_path=args.extra_embed_path,
+        max_idx=args.index_offset,
         title_weight=args.title_embed_weight,
         cuda=args.cuda,
         logging_level=logging.DEBUG if args.debug else logging.INFO
@@ -693,6 +694,7 @@ if __name__ == '__main__':
     parser.add_argument('--phrase_dir', default='phrase')
     parser.add_argument('--index_dir', default='256_flat_SQ4')
     parser.add_argument('--index_name', default='index.faiss')
+    parser.add_argument('--index_offset', default=int(5e8), type=int)
     parser.add_argument('--idx2id_name', default='idx2id.hdf5')
     parser.add_argument('--index_port', default='-1', type=str)
 
