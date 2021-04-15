@@ -363,7 +363,10 @@ class MIPS(object):
             query_end = torch.FloatTensor(query_end).to(self.device)
             new_end_scores = (query_end.unsqueeze(1) * end).sum(2).cpu().numpy()
         # also consider title in the new scores
-        scores1 = np.expand_dims(start_scores, 1) + (1-self.title_weight)*new_end_scores + self.title_weight * np.expand_dims(start_title_scores,1) + end_mask  # [Q, L]
+        if self.title_emb:
+            scores1 = np.expand_dims(start_scores, 1) + (1-self.title_weight)*new_end_scores + self.title_weight * np.expand_dims(start_title_scores,1) + end_mask  # [Q, L]
+        else:
+            scores1 = np.expand_dims(start_scores, 1) + new_end_scores + end_mask  # [Q, L]
         pred_end_idxs = np.stack([each[idx] for each, idx in zip(new_end_idxs, np.argmax(scores1, 1))], 0)  # [Q]
         pred_end_vecs = np.stack([each[idx] for each, idx in zip(end.cpu().numpy(), np.argmax(scores1, 1))], 0)
         logger.debug(f'2) {time()-start_time:.3f}s: find end')
@@ -388,7 +391,10 @@ class MIPS(object):
             query_start = torch.FloatTensor(query_start).to(self.device)
             new_start_scores = (query_start.unsqueeze(1) * start).sum(2).cpu().numpy()
         # also consider title in the new scores
-        scores2 = (1-self.title_weight)*new_start_scores + self.title_weight * np.expand_dims(end_title_scores,1) + np.expand_dims(end_scores, 1) + start_mask  # [Q, L]
+        if self.title_emb:
+            scores2 = (1-self.title_weight)*new_start_scores + self.title_weight * np.expand_dims(end_title_scores,1)+ np.expand_dims(end_scores, 1) + start_mask  # [Q, L]
+        else:
+            scores2 = new_start_scores + np.expand_dims(end_scores, 1) + start_mask
         pred_start_idxs = np.stack([each[idx] for each, idx in zip(new_start_idxs, np.argmax(scores2, 1))], 0)  # [Q]
         pred_start_vecs = np.stack([each[idx] for each, idx in zip(start.cpu().numpy(), np.argmax(scores2, 1))], 0)
         logger.debug(f'3) {time()-start_time:.3f}s: find start')
