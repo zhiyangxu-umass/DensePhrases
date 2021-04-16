@@ -254,7 +254,7 @@ class MIPS(object):
             }
 
             # read title emb
-            if self.title_emb:
+            if self.title_emb is not None:
                 print("group start and end title embs")
                 title_emb_list=[]
                 for doc_idx in start_doc_idxs.tolist():
@@ -363,7 +363,7 @@ class MIPS(object):
             query_end = torch.FloatTensor(query_end).to(self.device)
             new_end_scores = (query_end.unsqueeze(1) * end).sum(2).cpu().numpy()
         # also consider title in the new scores
-        if self.title_emb:
+        if self.title_emb is not None:
             scores1 = np.expand_dims(start_scores, 1) + (1-self.title_weight)*new_end_scores + self.title_weight * np.expand_dims(start_title_scores,1) + end_mask  # [Q, L]
         else:
             scores1 = np.expand_dims(start_scores, 1) + new_end_scores + end_mask  # [Q, L]
@@ -391,7 +391,7 @@ class MIPS(object):
             query_start = torch.FloatTensor(query_start).to(self.device)
             new_start_scores = (query_start.unsqueeze(1) * start).sum(2).cpu().numpy()
         # also consider title in the new scores
-        if self.title_emb:
+        if self.title_emb is not None:
             scores2 = (1-self.title_weight)*new_start_scores + self.title_weight * np.expand_dims(end_title_scores,1)+ np.expand_dims(end_scores, 1) + start_mask  # [Q, L]
         else:
             scores2 = new_start_scores + np.expand_dims(end_scores, 1) + start_mask
