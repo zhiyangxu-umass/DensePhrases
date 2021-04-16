@@ -323,12 +323,11 @@ eval-od-rerank: dump-dir model-name nq-open-data
 		--model_type bert \
 		--pretrained_name_or_path SpanBERT/spanbert-base-cased \
 		--cuda \
-		--eval_batch_size 1 \
+		--eval_batch_size 12 \
 		--dump_dir $(DUMP_DIR) \
-		--pred_output_file ./prediction_eval_dump.jsonl \
+		--pred_output_file ./prediction_eval_dump_rerank.jsonl \
 		--phrase_dump_dir /mnt/nfs/work1/696ds-s21/hmalara/phrase \
-		--index_dir start/1048576_flat_SQ4 \
-		--index_offset 100000000 \
+		--index_dir start-pq/1048576_flat_PQ96_8 \
 		--query_encoder_path $(DPH_SAVE_DIR)/$(MODEL_NAME) \
 		--test_path $(DPH_DATA_DIR)/$(TEST_DATA) \
 		--rerank \

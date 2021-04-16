@@ -23,7 +23,7 @@ def getAnswerList(obj) :
     return ret_list
         
 
-with jsonlines.open('nq-dev-kilt.jsonl') as reader:
+with jsonlines.open('/mnt/nfs/scratch1/hmalara/DensePhrase_Harsh_Repo/DensePhrases/dph-data/open-qa/nq-open/nq-dev-kilt.jsonl') as reader:
     for obj in reader:
         obj_list.append(obj)
         temp_str = (obj["input"].lower()).strip()

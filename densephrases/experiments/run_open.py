@@ -237,7 +237,6 @@ def eval_inmemory(args, mips=None, query_encoder=None, tokenizer=None):
                 o['sec_id'] =sec_idx
                 o['para_id'] =para_idx
                 fout.write(json.dumps(o)+'\n')
-            print('write one output')
         except Exception as e:
             print('Error during evaluation:', e)
             continue
