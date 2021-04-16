@@ -4,6 +4,7 @@ import torch
 import os
 import random
 import numpy as np
+import traceback
 import requests
 import logging
 import math
@@ -239,6 +240,7 @@ def eval_inmemory(args, mips=None, query_encoder=None, tokenizer=None):
                 fout.write(json.dumps(o)+'\n')
         except Exception as e:
             print('Error during evaluation:', e)
+            traceback.print_exc()
             continue
 
     logger.info(f"Avg. {sum(mips.num_docs_list)/len(mips.num_docs_list):.2f} number of docs per query")
