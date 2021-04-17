@@ -258,13 +258,10 @@ class MIPS(object):
                 print("group start and end title embs")
                 title_emb_list=[]
                 for doc_idx in start_doc_idxs.tolist():
-                    print('doc_idx',doc_idx)
                     title_id = self.wiki2id_[groups_all[doc_idx]['wikipedia_ids']]
-                    print('title id ',title_id)
                     emb_ = self.title_emb[title_id]
                     title_emb_list.append(emb_)
                 comb_title_emb = np.stack(title_emb_list,axis=0)
-                print("title emb np shape ",comb_title_emb.shape)
                 start_title_emb, end_title_emb = np.split(comb_title_emb, 2, axis=1) #batch x top-k, size
                 print("start shape ",start_title_emb.shape)
                 print("end shape ", end_title_emb.shape)
@@ -278,8 +275,6 @@ class MIPS(object):
                     query_start_t = torch.FloatTensor(query_start).to(self.device)
                     print('query_start shape', query_start_t.shape)
                     start_title_scores = (query_start_t * start_title_emb).sum(1).cpu().numpy()
-                    print('start title: ', start_title_scores)
-                    print('start: ', start_scores)
                     start_scores = (1-self.title_weight)*start_scores + self.title_weight * start_title_scores
                     # recompute end_scores
                     print("calculate end scores")
@@ -287,8 +282,8 @@ class MIPS(object):
                     query_end_t = torch.FloatTensor(query_end).to(self.device)
                     print('query_end shape', query_end_t.shape)
                     end_title_scores = (query_end_t * end_title_emb).sum(1).cpu().numpy()
-                    print('end title: ', end_title_scores)
-                    print('end: ', end_scores)
+                    print('end title: ', end_title_scores.shape)
+                    print('end: ', end_scores.shape)
                     end_scores = (1-self.title_weight)*end_scores + self.title_weight * end_title_scores
 
 
