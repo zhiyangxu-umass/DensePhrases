@@ -331,7 +331,7 @@ eval-od-rerank: dump-dir model-name nq-open-data
 		--query_encoder_path $(DPH_SAVE_DIR)/$(MODEL_NAME) \
 		--test_path $(DPH_DATA_DIR)/$(TEST_DATA) \
 		--rerank \
-		--title_embed_weight 0.1 \
+		--title_embed_weight $(TITLE_W) \
 		$(OPTIONS)
 
 eval-od: dump-dir model-name nq-open-data
