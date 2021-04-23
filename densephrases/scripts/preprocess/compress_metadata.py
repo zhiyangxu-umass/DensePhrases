@@ -42,6 +42,8 @@ def compress(d):
         title=d[i]['title']
         wikipedia_ids = d[i]['wikipedia_ids']
         sec_titles = d[i]['section_titles']
+        print(type(sec_titles))
+        print(sec_titles.dtype)
 
         # save type to use when decompressing
         type1= word2char_start.dtype
@@ -97,6 +99,7 @@ def load_doc_groups(phrase_dump_dir):
     phrase_dumps = phrase_dumps[:1]
     for path in tqdm(phrase_dump_paths, desc='loading doc groups'):
         with h5py.File(path, 'r') as f:
+            c = 1
             for key in tqdm(f):
                 doc_group = {}
                 for type_ in types:
@@ -104,6 +107,9 @@ def load_doc_groups(phrase_dump_dir):
                 for attr in attrs:
                     doc_group[attr] = f[key].attrs[attr]
                 doc_groups[key] = doc_group
+                c += 1
+                if c is 100:
+                    break
 
     return doc_groups
 
