@@ -53,9 +53,9 @@ def compress(d):
         d[i]['word2char_end'] = blosc.compress(word2char_end, typesize=1,cname='zlib')
         d[i]['f2o_start'] = blosc.compress(f2o_start, typesize=1,cname='zlib')
         d[i]['context'] = blosc.compress(context.encode('utf-8'),cname='zlib')
-        d[i]['title'] = blosc.compress(context.encode('utf-8'), cname='zlib')
-        d[i]['wikipedia_ids'] = blosc.compress(context.encode('utf-8'), cname='zlib')
-        d[i]['section_titles'] = blosc.compress(context.encode('utf-8'), typesize=1, cname='zlib')
+        d[i]['title'] = blosc.compress(title.encode('utf-8'), cname='zlib')
+        d[i]['wikipedia_ids'] = blosc.compress(wikipedia_ids.encode('utf-8'), cname='zlib')
+        d[i]['section_titles'] = blosc.compress(np.array(sec_titles), typesize=1, cname='zlib')
         d[i]['dtypes']={
                 'word2char_start':type1,
                 'word2char_end':type2,
@@ -70,7 +70,7 @@ def compress(d):
             decompressed_f2o_start = np.frombuffer(blosc.decompress(d[i]['f2o_start']), type3)
             decompressed_context = blosc.decompress(d[i]['context']).decode('utf-8')
             decompressed_wikipedia_ids = blosc.decompress(d[i]['wikipedia_ids']).decode('utf-8')
-            decompressed_section_titles = np.frombuffer(blosc.decompress(d[i]['section_titles']), type5)
+            decompressed_section_titles = list(np.frombuffer(blosc.decompress(d[i]['section_titles']), type5))
             decompressed_title = blosc.decompress(d[i]['title']).decode('utf-8')
 
             assert ((word2char_start == decompressed_word2char_start).all())

@@ -108,7 +108,7 @@ class MIPS(object):
         f2o_start = np.frombuffer(blosc.decompress(self.doc_groups[doc_idx]['f2o_start']), dtypes['f2o_start'])
         context = blosc.decompress(self.doc_groups[doc_idx]['context']).decode('utf-8')
         wikipedia_ids = self.doc_groups[doc_idx]['wikipedia_ids'].decode('utf-8')
-        section_titles = np.frombuffer(blosc.decompress(self.doc_groups[doc_idx]['section_titles']), dtypes['section_titles'])
+        section_titles = list(np.frombuffer(blosc.decompress(self.doc_groups[doc_idx]['section_titles']), dtypes['section_titles']))
         title = self.doc_groups[doc_idx]['title'].decode('utf-8')
 
         return {
