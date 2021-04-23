@@ -47,7 +47,6 @@ def compress(d):
         type1= word2char_start.dtype
         type2= word2char_end.dtype
         type3= f2o_start.dtype
-        type4= wikipedia_ids.dtype
         type5 = sec_titles.dtype
         
         d[i]['word2char_start'] = blosc.compress(word2char_start, typesize=1,cname='zlib')
@@ -55,13 +54,12 @@ def compress(d):
         d[i]['f2o_start'] = blosc.compress(f2o_start, typesize=1,cname='zlib')
         d[i]['context'] = blosc.compress(context.encode('utf-8'),cname='zlib')
         d[i]['title'] = blosc.compress(context.encode('utf-8'), cname='zlib')
-        d[i]['wikipedia_ids'] = blosc.compress(context.encode('utf-8'), typesize=1, cname='zlib')
+        d[i]['wikipedia_ids'] = blosc.compress(context.encode('utf-8'), cname='zlib')
         d[i]['section_titles'] = blosc.compress(context.encode('utf-8'), typesize=1, cname='zlib')
         d[i]['dtypes']={
                 'word2char_start':type1,
                 'word2char_end':type2,
                 'f2o_start':type3,
-                'wikipedia_ids': type4,
                 'section_titles': type5
         }
 
@@ -71,14 +69,14 @@ def compress(d):
             decompressed_word2char_end = np.frombuffer(blosc.decompress(d[i]['word2char_end']), type2)
             decompressed_f2o_start = np.frombuffer(blosc.decompress(d[i]['f2o_start']), type3)
             decompressed_context = blosc.decompress(d[i]['context']).decode('utf-8')
-            decompressed_wikipedia_ids = np.frombuffer(blosc.decompress(d[i]['wikipedia_ids']), type4)
+            decompressed_wikipedia_ids = blosc.decompress(d[i]['wikipedia_ids']).decode('utf-8')
             decompressed_section_titles = np.frombuffer(blosc.decompress(d[i]['section_titles']), type5)
             decompressed_title = blosc.decompress(d[i]['title']).decode('utf-8')
 
             assert ((word2char_start == decompressed_word2char_start).all())
             assert ((word2char_end == decompressed_word2char_end).all())
             assert ((f2o_start ==decompressed_f2o_start).all())
-            assert ((wikipedia_ids == decompressed_wikipedia_ids).all())
+            assert (wikipedia_ids == decompressed_wikipedia_ids)
             assert ((sec_titles == decompressed_section_titles).all())
             assert (context == decompressed_context)
             assert (title == decompressed_title)
