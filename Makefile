@@ -325,7 +325,7 @@ eval-od-rerank: dump-dir model-name nq-open-data
 		--cuda \
 		--eval_batch_size 12 \
 		--dump_dir $(DUMP_DIR) \
-		--pred_output_file ./prediction_eval_dump_rerank.jsonl \
+		--pred_output_file ${OUT_FILE} \
 		--phrase_dump_dir /mnt/nfs/work1/696ds-s21/hmalara/phrase \
 		--index_dir start-pq/1048576_flat_PQ96_8 \
 		--query_encoder_path $(DPH_SAVE_DIR)/$(MODEL_NAME) \
