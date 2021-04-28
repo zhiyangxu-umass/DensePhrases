@@ -18,13 +18,14 @@ def preprocess_kilt_jsonl(input_file, out_file):
                 if "answer" not in out or not out["answer"]:
                     continue
                 provs = []
-                for prov in out["provenance"]:
-                    k = {}
-                    k["title"] = prov["title"]
-                    k["section_title"] = prov["section"]
-                    k["paragraph_id"] = prov["start_paragraph_id"]
-                    k["wikipedia_id"] = prov["wikipedia_id"]
-                    provs.append(k)
+                if 'provenance' in out:
+                    for prov in out["provenance"]:
+                        k = {}
+                        k["title"] = prov["title"]
+                        k["section_title"] = prov["section"]
+                        k["paragraph_id"] = prov["start_paragraph_id"]
+                        k["wikipedia_id"] = prov["wikipedia_id"]
+                        provs.append(k)
                 provenances_list.append(provs)
                 answers.append(out["answer"])
             data_to_save.append({
