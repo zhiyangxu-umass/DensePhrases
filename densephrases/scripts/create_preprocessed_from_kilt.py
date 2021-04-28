@@ -41,11 +41,11 @@ def preprocess_kilt_jsonl(input_file, out_file):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('input_file', type=str,
+    parser.add_argument('--input_file', type=str,
                         default=os.path.join(os.environ['DPH_DATA_DIR'],'open-qa/nq-open/nq-dev-kilt.jsonl'))
-    parser.add_argument('out_dir', type=str,
+    parser.add_argument('--out_dir', type=str,
                         default=os.path.join(os.environ['DPH_DATA_DIR'],'open-qa/nq-open'))
-    parser.add_argument('out_file_name', type=str, default='nq_test_preprocessed.json')
+    parser.add_argument('--out_file_name', type=str, default='nq_test_preprocessed.json')
     args = parser.parse_args()
     assert os.path.exists(args.out_dir)
     out_path = os.path.join(args.out_dir, args.out_file_name)
