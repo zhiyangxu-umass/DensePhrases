@@ -5,6 +5,7 @@ from tqdm import tqdm
 
 
 def preprocess_kilt_jsonl(input_file, out_file):
+    data_to_save = []
     with open(input_file) as f:
         for line_idx, line in tqdm(enumerate(f)):
             data = json.loads(line)
@@ -13,7 +14,6 @@ def preprocess_kilt_jsonl(input_file, out_file):
             output = data['output']
             answers = []
             provenances_list = []
-            data_to_save = []
             for out in output:
                 if "answer" not in out or not out["answer"]:
                     continue
