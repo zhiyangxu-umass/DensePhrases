@@ -92,22 +92,26 @@ def load_doc_groups(phrase_dump_dir):
     phrase_dump_paths = sorted(
         [os.path.join(phrase_dump_dir, name) for name in os.listdir(phrase_dump_dir) if 'hdf5' in name]
     )
+    print(phrase_dump_paths)
     doc_groups = {}
     types = ['word2char_start', 'word2char_end', 'f2o_start']
     attrs = ['context', 'title', 'section_titles', 'wikipedia_ids']
     phrase_dumps = [h5py.File(path, 'r') for path in phrase_dump_paths]
     phrase_dumps = phrase_dumps[:1]
-    for path in tqdm(phrase_dump_paths, desc='loading doc groups'):
-        with h5py.File(path, 'r') as f:
+    for phrase_dump in tqdm(phrase_dumps, desc='loading doc groups'):
+        with phrase_dump as f:
             c = 1
-            for key in tqdm(f):
+            for key, group in tqdm(f.items()):
                 doc_group = {}
+                print(key, c, doc_group)
                 for type_ in types:
-                    doc_group[type_] = f[key][type_][:]
-                for attr in attrs:
-                    doc_group[attr] = f[key].attrs[attr]
-                doc_groups[key] = doc_group
+                    doc_group[type_] = group[type_][:]
                 print(doc_group)
+                for attr in attrs:
+                    doc_group[attr] = group.attrs[attr]
+                print(doc_group)
+                doc_groups[key] = doc_group
+                print(doc_groups)
                 c += 1
                 if c > 100:
                     break
