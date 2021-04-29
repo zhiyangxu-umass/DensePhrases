@@ -111,7 +111,6 @@ def load_doc_groups(phrase_dump_dir):
                 c += 1
                 if c > 100:
                     break
-        break
     return doc_groups
 
 def main(args):
