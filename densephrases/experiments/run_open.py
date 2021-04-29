@@ -104,10 +104,9 @@ def load_phrase_index(args, load_light=False):
         phrase_dump_dir=phrase_dump_dir,
         index_path=index_path,
         idx2id_path=idx2id_path,
-        extra_emb_path=args.extra_embed_path,
         max_idx=args.index_offset,
         cuda=args.cuda,
-        result_cache_dump_dir=args.phrase_index_cache_path,
+        result_cache_dump_path=args.phrase_index_cache_path,
         return_cached_results=args.use_phrase_index_cache,
         logging_level=logging.DEBUG if args.debug else logging.INFO
     )
