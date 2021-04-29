@@ -1,38 +1,32 @@
-import json
 import argparse
-import torch
-import os
-import random
-import numpy as np
-import traceback
-import requests
+import copy
+import json
 import logging
 import math
-import copy
+import os
+import random
+import traceback
+
+import numpy as np
+import torch
 import wandb
-import string
-
-from time import time
 from tqdm import tqdm
-
-from densephrases.models import DensePhrases, MIPS, MIPSLight
-from densephrases.utils.single_utils import backward_compat
-from densephrases.utils.squad_utils import get_question_dataloader, TrueCaser
-from densephrases.utils.embed_utils import get_question_results
-from densephrases.utils.eval_utils import normalize_answer, f1_score, exact_match_score, drqa_exact_match_score, \
-        drqa_regex_match_score, drqa_metric_max_over_ground_truths, drqa_normalize
-from densephrases.utils.kilt.eval import evaluate as kilt_evaluate
-from densephrases.utils.kilt.kilt_utils import store_data as kilt_store_data
-
 from transformers import (
     MODEL_MAPPING,
     AutoConfig,
     AutoTokenizer,
-    AutoModel,
-    AutoModelForQuestionAnswering,
     AdamW,
     get_linear_schedule_with_warmup,
 )
+
+from densephrases.models import DensePhrases, MIPS, MIPSLight
+from densephrases.utils.embed_utils import get_question_results
+from densephrases.utils.eval_utils import f1_score, exact_match_score, drqa_exact_match_score, \
+    drqa_regex_match_score, drqa_metric_max_over_ground_truths
+from densephrases.utils.kilt.eval import evaluate as kilt_evaluate
+from densephrases.utils.kilt.kilt_utils import store_data as kilt_store_data
+from densephrases.utils.single_utils import backward_compat
+from densephrases.utils.squad_utils import get_question_dataloader, TrueCaser
 
 logging.basicConfig(format='%(asctime)s - %(levelname)s - %(name)s -   %(message)s', datefmt='%m/%d/%Y %H:%M:%S',
                     level=logging.INFO)
@@ -76,6 +70,7 @@ def load_query_encoder(device, args):
 
 def get_query2vec(query_encoder, tokenizer, args, batch_size=64):
     device = 'cuda' if args.cuda else 'cpu'
+
     def query2vec(queries):
         question_dataloader, question_examples, query_features = get_question_dataloader(
             queries, tokenizer, args.max_query_length, batch_size=batch_size
@@ -92,6 +87,7 @@ def get_query2vec(query_encoder, tokenizer, args, batch_size=64):
             )
             outs.append(out)
         return outs
+
     return query2vec
 
 
@@ -110,8 +106,9 @@ def load_phrase_index(args, load_light=False):
         idx2id_path=idx2id_path,
         extra_emb_path=args.extra_embed_path,
         max_idx=args.index_offset,
-        title_weight=args.title_embed_weight,
         cuda=args.cuda,
+        result_cache_dump_dir=args.phrase_index_cache_path,
+        return_cached_results=args.use_phrase_index_cache,
         logging_level=logging.DEBUG if args.debug else logging.INFO
     )
     return mips
@@ -124,7 +121,7 @@ def embed_all_query(questions, args, query_encoder, tokenizer, batch_size=48):
 
     all_outs = []
     for q_idx in tqdm(range(0, len(questions), batch_size)):
-        outs = query2vec(questions[q_idx:q_idx+batch_size])
+        outs = query2vec(questions[q_idx:q_idx + batch_size])
         all_outs += outs
     start = np.concatenate([out[0] for out in all_outs], 0)
     end = np.concatenate([out[1] for out in all_outs], 0)
@@ -202,11 +199,12 @@ def eval_inmemory(args, mips=None, query_encoder=None, tokenizer=None):
     para_idxs = []
     eval_file = args.pred_output_file
     open(eval_file, 'w').close()
+    fout = open(eval_file, 'a')
     for q_idx in tqdm(range(0, len(questions), step)):
         try:
             result = mips.search(
-                query_vec[q_idx:q_idx+step],
-                q_texts=questions[q_idx:q_idx+step], nprobe=args.nprobe,
+                query_vec[q_idx:q_idx + step],
+                q_texts=questions[q_idx:q_idx + step], nprobe=args.nprobe,
                 top_k=args.top_k, max_answer_length=args.max_answer_length,
             )
             prediction = [[ret['answer'] for ret in out] if len(out) > 0 else [''] for out in result]
@@ -225,30 +223,25 @@ def eval_inmemory(args, mips=None, query_encoder=None, tokenizer=None):
             sec_titles += sec_title
             sec_idxs += sec_idx
             para_idxs += para_idx
-            with open(eval_file,'a') as fout:
-                o = {}
-                o['q_id'] = qids[q_idx:q_idx+step]
-                o['question'] = questions[q_idx:q_idx+step]
-                o['gt_answer'] = answers[q_idx:q_idx+step]
-                o['pred_answer'] = prediction
-                o['evidence'] = evidence
-                o['score'] = score
-                o['title'] = title
-                o['sec_title'] = sec_title
-                o['sec_id'] =sec_idx
-                o['para_id'] =para_idx
-                fout.write(json.dumps(o)+'\n')
+            for step_id in range(step):
+                o = {'q_id': qids[q_idx + step_id], 'question': questions[q_idx + step_id],
+                     'gt_answer': answers[q_idx + step_id], 'pred_answer': prediction[step_id], 'score': score[step_id],
+                     'title': title[step_id], 'sec_title': sec_title[step_id], 'sec_id': sec_idx[step_id],
+                     'para_id': para_idx[step_id], 'evidence': evidence[step_id]}
+                fout.write(json.dumps(o) + '\n')
         except Exception as e:
             print('Error during evaluation:', e)
             traceback.print_exc()
             continue
 
-    logger.info(f"Avg. {sum(mips.num_docs_list)/len(mips.num_docs_list):.2f} number of docs per query")
+    logger.info(f"Avg. {sum(mips.num_docs_list) / len(mips.num_docs_list):.2f} number of docs per query")
     eval_fn = evaluate_results if not args.is_kilt else evaluate_results_kilt
-    return eval_fn(predictions, wiki_idxs, sec_titles, sec_idxs, para_idxs, qids, questions, answers, args, evidences, scores, titles)
+    return eval_fn(predictions, wiki_idxs, sec_titles, sec_idxs, para_idxs, qids, questions, answers, args, evidences,
+                   scores, titles)
 
 
-def evaluate_results(predictions, wiki_idxs, sec_titles, sec_idxs, para_idxs, qids, questions, answers, args, evidences, scores, titles, q_tokens=None):
+def evaluate_results(predictions, wiki_idxs, sec_titles, sec_idxs, para_idxs, qids, questions, answers, args, evidences,
+                     scores, titles, q_tokens=None):
     wandb.init(project="DensePhrases (open)", mode="online" if args.wandb else "disabled")
     wandb.config.update(args)
 
@@ -267,10 +260,9 @@ def evaluate_results(predictions, wiki_idxs, sec_titles, sec_idxs, para_idxs, qi
     else:
         predictions = [a[:args.top_k] if len(a) > 0 else [''] for a in predictions]
         wiki_idxs = [a[:args.top_k] if len(a) > 0 else [''] for a in wiki_idxs]
-        sec_titles =[a[:args.top_k] if len(a) > 0 else [''] for a in sec_titles]
-        sec_idxs =[a[:args.top_k] if len(a) > 0 else [''] for a in sec_idxs]
-        para_idxs =[a[:args.top_k] if len(a) > 0 else [''] for a in para_idxs]
-
+        sec_titles = [a[:args.top_k] if len(a) > 0 else [''] for a in sec_titles]
+        sec_idxs = [a[:args.top_k] if len(a) > 0 else [''] for a in sec_idxs]
+        para_idxs = [a[:args.top_k] if len(a) > 0 else [''] for a in para_idxs]
         top1_preds = [a[0] for a in predictions]
     no_ans = sum([a == '' for a in top1_preds])
     logger.info(f'no_ans/all: {no_ans}, {len(top1_preds)}')
@@ -279,14 +271,14 @@ def evaluate_results(predictions, wiki_idxs, sec_titles, sec_idxs, para_idxs, qi
     # Get em/f1
     f1s, ems = [], []
     for prediction, groundtruth in zip(top1_preds, answers):
-        if len(groundtruth)==0:
+        if len(groundtruth) == 0:
             f1s.append(0)
             ems.append(0)
             continue
         f1s.append(max([f1_score(prediction, gt)[0] for gt in groundtruth]))
         ems.append(max([exact_match_score(prediction, gt) for gt in groundtruth]))
     final_f1, final_em = np.mean(f1s), np.mean(ems)
-    logger.info('EM: %.2f, F1: %.2f'%(final_em * 100, final_f1 * 100))
+    logger.info('EM: %.2f, F1: %.2f' % (final_em * 100, final_f1 * 100))
 
     # Top 1/k em (or regex em)
     exact_match_topk = 0
@@ -297,7 +289,7 @@ def evaluate_results(predictions, wiki_idxs, sec_titles, sec_idxs, para_idxs, qi
     for i in range(len(predictions)):
         # For debugging
         if i < 3:
-            logger.info(f'{i+1}) {questions[i]}')
+            logger.info(f'{i + 1}) {questions[i]}')
             logger.info(f'=> groundtruths: {answers[i]}, top 5 prediction: {predictions[i][:5]}')
 
         match_fn = drqa_regex_match_score if args.regex else drqa_exact_match_score
@@ -324,13 +316,13 @@ def evaluate_results(predictions, wiki_idxs, sec_titles, sec_idxs, para_idxs, qi
             f1_score_top1 += f1_top1
 
         pred_out[qids[i]] = {
-                'question': questions[i],
-                'answer': answers[i], 'prediction': predictions[i], 'score': scores[i], 'title': titles[i],
-                'wiki_idx': wiki_idxs[i], 'sec_title': sec_titles[i], 'sec_idx': sec_idxs[i], 'para_idx': para_idxs[i],
-                'evidence': evidences[i] if evidences is not None else '',
-                'em_top1': bool(em_top1), f'em_top{args.top_k}': bool(em_topk),
-                'f1_top1': f1_top1, f'f1_top{args.top_k}': f1_topk,
-                'q_tokens': q_tokens[i] if q_tokens is not None else ['']
+            'question': questions[i],
+            'answer': answers[i], 'prediction': predictions[i], 'score': scores[i], 'title': titles[i],
+            'wiki_idx': wiki_idxs[i], 'sec_title': sec_titles[i], 'sec_idx': sec_idxs[i], 'para_idx': para_idxs[i],
+            'evidence': evidences[i] if evidences is not None else '',
+            'em_top1': bool(em_top1), f'em_top{args.top_k}': bool(em_topk),
+            'f1_top1': f1_top1, f'f1_top{args.top_k}': f1_topk,
+            'q_tokens': q_tokens[i] if q_tokens is not None else ['']
         }
 
     total = len(predictions)
@@ -365,7 +357,7 @@ def evaluate_results(predictions, wiki_idxs, sec_titles, sec_idxs, para_idxs, qi
 def evaluate_results_kilt(predictions, qids, questions, answers, args, evidences, scores, titles):
     wandb.init(project="DensePhrases (KILT)", mode="online" if args.wandb else "disabled")
     wandb.config.update(args)
-    total=len(predictions)
+    total = len(predictions)
 
     # load title2id dict and convert predicted titles into wikipedia_ids
     with open(args.title2wikiid_path) as f:
@@ -381,7 +373,7 @@ def evaluate_results_kilt(predictions, qids, questions, answers, args, evidences
         os.makedirs(pred_dir)
     pred_official_path = os.path.join(
         pred_dir, f'{args.query_encoder_path.split("/")[-1]}_' +
-        os.path.splitext(os.path.basename(args.test_path))[0] + f'_{total}.jsonl'
+                  os.path.splitext(os.path.basename(args.test_path))[0] + f'_{total}.jsonl'
     )
     official_preds_to_save = []
     for prediction, question, pred_wikipedia_id, qid in zip(predictions, questions, pred_wikipedia_ids, qids):
@@ -389,9 +381,9 @@ def evaluate_results_kilt(predictions, qids, questions, answers, args, evidences
         for pred, pred_wid in zip(prediction, pred_wikipedia_id):
             outputs.append({
                 'answer': pred,
-                'provenance':[{'wikipedia_id':pred_wid_} for pred_wid_ in pred_wid]
+                'provenance': [{'wikipedia_id': pred_wid_} for pred_wid_ in pred_wid]
             })
-            
+
         official_preds_to_save.append({
             'id': qid,
             'input': question,
@@ -408,12 +400,12 @@ def evaluate_results_kilt(predictions, qids, questions, answers, args, evidences
 
     # logging results
     result_to_logging = {
-        'accuracy':result['downstream']['accuracy'],
-        'f1':result['downstream']['f1'],
-        'KILT-accuracy':result['kilt']['KILT-accuracy'],
-        'KILT-f1':result['kilt']['KILT-f1'],
-        'Rprec':result['retrieval']['Rprec'],
-        'recall@5':result['retrieval']['recall@5']
+        'accuracy': result['downstream']['accuracy'],
+        'f1': result['downstream']['f1'],
+        'KILT-accuracy': result['kilt']['KILT-accuracy'],
+        'KILT-f1': result['kilt']['KILT-f1'],
+        'Rprec': result['retrieval']['Rprec'],
+        'recall@5': result['retrieval']['recall@5']
     }
 
     logger.info(result_to_logging)
@@ -424,7 +416,7 @@ def evaluate_results_kilt(predictions, qids, questions, answers, args, evidences
     for i in range(len(predictions)):
         # For debugging
         if i < 3:
-            logger.info(f'{i+1}) {questions[i]}')
+            logger.info(f'{i + 1}) {questions[i]}')
             logger.info(f'=> groundtruths: {answers[i]}, top 5 prediction: {predictions[i][:5]}')
 
         guess_answer = predictions[i][0]
@@ -432,12 +424,12 @@ def evaluate_results_kilt(predictions, qids, questions, answers, args, evidences
         local_accuracy = 0
         if guess_answer in gold_candidate_answers:
             local_accuracy = 1
-        
+
         pred_out[qids[i]] = {
-                'question': questions[i],
-                'answer': answers[i], 'prediction': predictions[i], 'score': scores[i], 'title': titles[i],
-                'evidence': evidences[i] if evidences is not None else '',
-                'em_top1': bool(local_accuracy),
+            'question': questions[i],
+            'answer': answers[i], 'prediction': predictions[i], 'score': scores[i], 'title': titles[i],
+            'evidence': evidences[i] if evidences is not None else '',
+            'em_top1': bool(local_accuracy),
         }
 
     # dump custom predictions
@@ -459,7 +451,7 @@ def train_query_encoder(args, mips=None):
 
     # Train another
     logger.info("Loading target encoder: this one is for training")
-    target_encoder, _= load_query_encoder(device, args)
+    target_encoder, _ = load_query_encoder(device, args)
 
     # MIPS
     if mips is None:
@@ -468,26 +460,27 @@ def train_query_encoder(args, mips=None):
     # Optimizer setting
     def is_train_param(name):
         if name.endswith("bert_start.embeddings.word_embeddings.weight") or \
-            name.endswith("bert_end.embeddings.word_embeddings.weight") or \
-            name.endswith("bert_q_start.embeddings.word_embeddings.weight") or \
-            name.endswith("bert_q_end.embeddings.word_embeddings.weight"):
+                name.endswith("bert_end.embeddings.word_embeddings.weight") or \
+                name.endswith("bert_q_start.embeddings.word_embeddings.weight") or \
+                name.endswith("bert_q_end.embeddings.word_embeddings.weight"):
             logger.info(f'freezing {name}')
             return False
         return True
+
     no_decay = ["bias", "LayerNorm.weight"]
     optimizer_grouped_parameters = [{
-            "params": [
-                p for n, p in target_encoder.named_parameters() \
-                    if not any(nd in n for nd in no_decay) and is_train_param(n)
-            ],
-            "weight_decay": 0.01,
-        }, {
-            "params": [
-                p for n, p in target_encoder.named_parameters() \
-                    if any(nd in n for nd in no_decay) and is_train_param(n)
-            ],
-            "weight_decay": 0.0
-        },
+        "params": [
+            p for n, p in target_encoder.named_parameters() \
+            if not any(nd in n for nd in no_decay) and is_train_param(n)
+        ],
+        "weight_decay": 0.01,
+    }, {
+        "params": [
+            p for n, p in target_encoder.named_parameters() \
+            if any(nd in n for nd in no_decay) and is_train_param(n)
+        ],
+        "weight_decay": 0.0
+    },
     ]
     optimizer = AdamW(optimizer_grouped_parameters, lr=args.learning_rate, eps=args.adam_epsilon)
     step_per_epoch = math.ceil(len(load_qa_pairs(args.train_path, args)[1]) / args.per_gpu_train_batch_size)
@@ -495,7 +488,7 @@ def train_query_encoder(args, mips=None):
     logger.info(f"Train for {t_total} iterations")
     scheduler = get_linear_schedule_with_warmup(
         optimizer, num_warmup_steps=args.warmup_steps, num_training_steps=t_total
-     )
+    )
     eval_steps = math.ceil(len(load_qa_pairs(args.dev_path, args)[1]) / args.eval_batch_size)
     logger.info(f"Test takes {eval_steps} iterations")
 
@@ -559,20 +552,20 @@ def train_query_encoder(args, mips=None):
                     target_encoder.zero_grad()
 
                     pbar.set_description(
-                        f"Ep {ep_idx+1} Tr loss: {loss.mean().item():.2f}, acc: {sum(accs)/len(accs):.3f}"
+                        f"Ep {ep_idx + 1} Tr loss: {loss.mean().item():.2f}, acc: {sum(accs) / len(accs):.3f}"
                     )
 
                 if accs is not None:
                     total_accs += accs
                     total_accs_k += [len(tgt) > 0 for tgt in tgts_t]
                 else:
-                    total_accs += [0.0]*len(tgts_t)
-                    total_accs_k += [0.0]*len(tgts_t)
+                    total_accs += [0.0] * len(tgts_t)
+                    total_accs_k += [0.0] * len(tgts_t)
 
         step_idx += 1
         logger.info(
-            f"Avg train loss ({step_idx} iterations): {total_loss/step_idx:.2f} | train " +
-            f"acc@1: {sum(total_accs)/len(total_accs):.3f} | acc@{args.top_k}: {sum(total_accs_k)/len(total_accs_k):.3f}"
+            f"Avg train loss ({step_idx} iterations): {total_loss / step_idx:.2f} | train " +
+            f"acc@1: {sum(total_accs) / len(total_accs):.3f} | acc@{args.top_k}: {sum(total_accs_k) / len(total_accs_k):.3f}"
         )
 
         # Evaluation
@@ -613,18 +606,18 @@ def get_top_phrases(mips, questions, answers, query_encoder, tokenizer, batch_si
         query_encoder=query_encoder, tokenizer=tokenizer, args=args, batch_size=batch_size
     )
     for q_idx in tqdm(range(0, len(questions), step)):
-        outs = query2vec(questions[q_idx:q_idx+step])
+        outs = query2vec(questions[q_idx:q_idx + step])
         start = np.concatenate([out[0] for out in outs], 0)
         end = np.concatenate([out[1] for out in outs], 0)
         query_vec = np.concatenate([start, end], 1)
 
         outs = search_fn(
             query_vec,
-            q_texts=questions[q_idx:q_idx+step], nprobe=args.nprobe,
+            q_texts=questions[q_idx:q_idx + step], nprobe=args.nprobe,
             top_k=args.top_k, return_idxs=True,
             max_answer_length=args.max_answer_length,
         )
-        yield questions[q_idx:q_idx+step], answers[q_idx:q_idx+step], outs
+        yield questions[q_idx:q_idx + step], answers[q_idx:q_idx + step], outs
 
 
 def get_phrase_vecs(mips, questions, answers, outs, args):
@@ -632,13 +625,13 @@ def get_phrase_vecs(mips, questions, answers, outs, args):
 
     # Get phrase and vectors
     phrase_idxs = [[(out_['doc_idx'], out_['start_idx'], out_['end_idx'], out_['answer'],
-        out_['start_vec'], out_['end_vec']) for out_ in out]
-        for out in outs
-    ]
+                     out_['start_vec'], out_['end_vec']) for out_ in out]
+                   for out in outs
+                   ]
     for b_idx, phrase_idx in enumerate(phrase_idxs):
-        while len(phrase_idxs[b_idx]) < args.top_k * 2: # two separate top-k from start/end
+        while len(phrase_idxs[b_idx]) < args.top_k * 2:  # two separate top-k from start/end
             phrase_idxs[b_idx].append((-1, 0, 0, '', np.zeros((768)), np.zeros((768))))
-        phrase_idxs[b_idx] = phrase_idxs[b_idx][:args.top_k*2]
+        phrase_idxs[b_idx] = phrase_idxs[b_idx][:args.top_k * 2]
     flat_phrase_idxs = [phrase for phrase_idx in phrase_idxs for phrase in phrase_idx]
     doc_idxs = [int(phrase_idx_[0]) for phrase_idx_ in flat_phrase_idxs]
     start_idxs = [int(phrase_idx_[1]) for phrase_idx_ in flat_phrase_idxs]
@@ -664,15 +657,15 @@ def get_phrase_vecs(mips, questions, answers, outs, args):
     end_vecs = end_vecs * zero_mask
 
     # Find targets based on exact string match
-    match_fn = drqa_regex_match_score if args.regex else drqa_exact_match_score # Punctuation included
+    match_fn = drqa_regex_match_score if args.regex else drqa_exact_match_score  # Punctuation included
     targets = [[drqa_metric_max_over_ground_truths(match_fn, phrase[3], answer) for phrase in phrase_idx]
-        for phrase_idx, answer in zip(phrase_idxs, answers)]
+               for phrase_idx, answer in zip(phrase_idxs, answers)]
     targets = [[ii if val else None for ii, val in enumerate(target)] for target in targets]
 
     # Reshape
     batch_size = len(answers)
-    start_vecs = np.reshape(start_vecs, (batch_size, args.top_k*2, -1))
-    end_vecs = np.reshape(end_vecs, (batch_size, args.top_k*2, -1))
+    start_vecs = np.reshape(start_vecs, (batch_size, args.top_k * 2, -1))
+    end_vecs = np.reshape(end_vecs, (batch_size, args.top_k * 2, -1))
     return start_vecs, end_vecs, targets
 
 
@@ -698,6 +691,12 @@ if __name__ == '__main__':
     parser.add_argument('--index_offset', default=int(5e8), type=int)
     parser.add_argument('--idx2id_name', default='idx2id.hdf5')
     parser.add_argument('--index_port', default='-1', type=str)
+    parser.add_argument('--phrase_index_cache_name', default='nq_test_preprocessed_cache.json', type=str,
+                        help="Name of the cache where the retrieved results from phrase MIPS index are stored."
+                             " The file is stored in index_dir inside dump dir")
+    parser.add_argument('--use_phrase_index_cache', default=False, action='store_true',
+                        help="Whether to bypass MIPS phrase index search by using cache. Depends on whether a cache "
+                             "exists for the folder")
 
     # These can be dynamically changed.
     parser.add_argument('--max_answer_length', default=10, type=int)
@@ -710,7 +709,7 @@ if __name__ == '__main__':
     parser.add_argument('--is_kilt', default=False, action='store_true')
     parser.add_argument('--kilt_gold_path', default='kilt/trex/trex-dev-kilt.jsonl')
     parser.add_argument('--title2wikiid_path', default='wikidump/title2wikiid.json')
-    
+
     # Serving options
     parser.add_argument('--examples_path', default='examples.txt')
 
@@ -744,10 +743,13 @@ if __name__ == '__main__':
     parser.add_argument('--wandb', default=False, action='store_true')
     parser.add_argument('--seed', default=1992, type=int)
 
-    #reranking options
-    parser.add_argument('--rerank', default=False, action='store_true')
-    parser.add_argument('--extra_embed_path', default='/mnt/nfs/scratch1/hmalara/DensePhrase_Harsh_Repo/DensePhrases/dph-data/kilt_ks_wikidump/extra_emb')
-    parser.add_argument('--title_embed_weight', default=0.0, type=float)
+    # reranking options
+    parser.add_argument('--rerank', default=False, action='store_true', help="Reranks the results using a reranker")
+    parser.add_argument('--rerank_top_k', default=False, action='store_true', help="Filter the top k after reranking")
+    parser.add_argument('--extra_embed_path',
+                        default=os.path.join(os.environ['DPH_DATA_DIR'], 'kilt_ks_wikidump/extra_emb'),
+                        help="Path of the extra embeddings that are to be used for reranking")
+    parser.add_argument('--title_embed_weight', default=0.0, type=float, help="Weightage for title based reranking")
 
     args = parser.parse_args()
 
@@ -756,6 +758,12 @@ if __name__ == '__main__':
 
     if not args.rerank:
         args.extra_embed_path = None
+
+    # Arguments to cache phrase index results.
+    if args.phrase_index_cache_name is not None:
+        args.phrase_index_cache_path = os.path.join(args.dump_dir, args.index_dir, args.phrase_index_cache_name)
+    else:
+        args.phrase_index_cache_path = None
 
     # Seed for reproducibility
     random.seed(args.seed)

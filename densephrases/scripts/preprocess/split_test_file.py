@@ -1,5 +1,7 @@
 import json
-file_name = '/mnt/nfs/scratch1/hmalara/DensePhrase_Harsh_Repo/DensePhrases/dph-data/open-qa/nq-open/test_preprocessed'
+import os
+
+file_name = os.path.join(os.environ['DPH_DATA_DIR'],'open-qa/nq-open/test_preprocessed')
 with open(file_name+'.json') as f:
     data = json.load(f)["data"]
     with open(file_name+'_140-180.json', 'w') as outfile:

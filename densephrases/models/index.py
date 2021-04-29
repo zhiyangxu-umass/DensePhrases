@@ -1,19 +1,18 @@
-import json
 import os
-import random
 import logging
-import h5py
-import faiss
-import torch
-import blosc
+import os
 import pickle
-import numpy as np
-
 from time import time
+import json
+
+import blosc
+import faiss
+import h5py
+import numpy as np
+import torch
 from tqdm import tqdm
 
 from densephrases.utils.eval_utils import normalize_answer
-
 
 logging.basicConfig(format='%(asctime)s - %(levelname)s - %(name)s -   %(message)s', datefmt='%m/%d/%Y %H:%M:%S',
                     level=logging.INFO)
@@ -21,8 +20,8 @@ logger = logging.getLogger(__name__)
 
 
 class MIPS(object):
-    def __init__(self, phrase_dump_dir, index_path, idx2id_path, extra_emb_path, max_idx, title_weight=0.0, cuda=False,
-                 logging_level=logging.INFO):
+    def __init__(self, phrase_dump_dir, index_path, idx2id_path, max_idx, cuda=False, result_cache_dump_path=None,
+                 return_cached_results=False, logging_level=logging.INFO):
         self.phrase_dump_dir = phrase_dump_dir
 
         # Read index
@@ -39,17 +38,6 @@ class MIPS(object):
         self.offset = None
         self.scale = None
         self.doc_groups = None
-        self.title_weight = title_weight
-
-        # Read wiki2id
-        if extra_emb_path:
-            logger.info(f"reading extra emb from: {extra_emb_path}")
-            self.wiki2id_ = json.load(open(os.path.join(extra_emb_path,'wiki2idx.json'),'r'))
-            logger.info(f"length of wiki2idx: {len(self.wiki2id_)}")
-            self.title_emb = np.load(os.path.join(extra_emb_path,'title_emb.npy'))
-            logger.info(f"shape of title emb: {self.title_emb.shape}")
-        else:
-            self.title_emb = None
 
         # Options
         logger.setLevel(logging_level)
@@ -73,6 +61,28 @@ class MIPS(object):
             self.doc_groups = pickle.load(open(doc_group_path, 'rb'))
         else:
             logger.info(f"Will read metadata directly from hdf5 files (requires SSDs for faster inference)")
+
+        # Set cache for reading or overwriting
+        if result_cache_dump_path is not None:
+            self.result_cache_path = result_cache_dump_path
+            self.result_cache = {}
+            self.read_cache_results = return_cached_results
+            if os.path.exists(self.result_cache_path):
+                logger.info(f"Reading the cached results from {self.result_cache_path}")
+                self.result_cache = json.loads(self.result_cache_path)
+            else:
+                logger.info(f"No cache exists at path {self.result_cache_path}. Cannot read if set to read.")
+                self.read_cache_results = False
+            self.overwrite_cache = not self.read_cache_results
+        else:
+            logger.info(f"Cache path is not set.")
+            self.read_cache_results = False
+            self.overwrite_cache = False
+
+    def __del__(self):
+        if self.overwrite_cache:
+            with open(self.result_cache_path, 'w') as f:
+                json.dump(self.result_cache, f)
 
     def load_idx_f(self, idx2id_path):
         idx_f = {}
@@ -102,6 +112,7 @@ class MIPS(object):
             phrase_dump.close()
 
     def decompress_meta(self, doc_idx):
+        #TODO needs rectification
         dtypes = self.doc_groups[doc_idx]['dtypes'] # needed for store from binary stream
         word2char_start = np.frombuffer(blosc.decompress(self.doc_groups[doc_idx]['word2char_start']), dtypes['word2char_start'])
         word2char_end = np.frombuffer(blosc.decompress(self.doc_groups[doc_idx]['word2char_end']), dtypes['word2char_end'])
@@ -124,11 +135,9 @@ class MIPS(object):
         }
 
     def get_idxs(self, I):
-        # use max_idx 1e9 for IVFPQ 1048576
         max_idx = self.max_idx
         offsets = (I / max_idx).astype(np.int64) * int(max_idx)
         idxs = I % int(max_idx)
-        #print("I=", I, "max_idx", max_idx, "offsets", offsets, "idxs=", idxs)
         doc = np.array(
             [[self.idx_f[str(offset)]['doc'][idx] for offset, idx in zip(oo, ii)] for oo, ii in zip(offsets, idxs)])
         word = np.array([[self.idx_f[str(offset)]['word'][idx] for offset, idx in zip(oo, ii)] for oo, ii in
@@ -137,7 +146,6 @@ class MIPS(object):
                          zip(offsets, idxs)])
         para = np.array([[self.idx_f[str(offset)]['para'][idx] for offset, idx in zip(oo, ii)] for oo, ii in
                          zip(offsets, idxs)])
-        #print("doc=", doc, "word", word, "sec", sec, "para=", para)
         return doc, sec, para, word
 
     def get_doc_group(self, doc_idx):
@@ -253,42 +261,6 @@ class MIPS(object):
                 } for doc_idx in set(start_doc_idxs.tolist() + end_doc_idxs.tolist()) if doc_idx >= 0
             }
 
-            # read title emb
-            if self.title_emb is not None:
-                print("group start and end title embs")
-                title_emb_list=[]
-                for doc_idx in start_doc_idxs.tolist():
-                    title_id = self.wiki2id_[groups_all[doc_idx]['wikipedia_ids']]
-                    emb_ = self.title_emb[title_id]
-                    title_emb_list.append(emb_)
-                comb_title_emb = np.stack(title_emb_list,axis=0)
-                start_title_emb, end_title_emb = np.split(comb_title_emb, 2, axis=1) #batch x top-k, size
-                print("start shape ",start_title_emb.shape)
-                print("end shape ", end_title_emb.shape)
-
-
-
-                with torch.no_grad():
-                    # recompute start_scores
-                    print("calculate start scores")
-                    start_title_emb = torch.FloatTensor(start_title_emb).to(self.device)
-                    query_start_t = torch.FloatTensor(query_start).to(self.device)
-                    print('query_start shape', query_start_t.shape)
-                    start_title_scores = (query_start_t * start_title_emb).sum(1).cpu().numpy()
-                    start_scores = (1-self.title_weight)*start_scores + self.title_weight * start_title_scores
-                    # recompute end_scores
-                    print("calculate end scores")
-                    end_title_emb = torch.FloatTensor(end_title_emb).to(self.device)
-                    query_end_t = torch.FloatTensor(query_end).to(self.device)
-                    print('query_end shape', query_end_t.shape)
-                    end_title_scores = (query_end_t * end_title_emb).sum(1).cpu().numpy()
-                    print('end title: ', end_title_scores.shape)
-                    print('end: ', end_scores.shape)
-                    end_scores = (1-self.title_weight)*end_scores + self.title_weight * end_title_scores
-
-
-
-
             groups_start = [{'end': np.array([
                 groups[doc_idx]['start'][ii] for ii in range(
                     start_idx, min(start_idx+max_answer_length, len(groups[doc_idx]['start'])))
@@ -357,11 +329,7 @@ class MIPS(object):
             end = torch.FloatTensor(end).to(self.device)
             query_end = torch.FloatTensor(query_end).to(self.device)
             new_end_scores = (query_end.unsqueeze(1) * end).sum(2).cpu().numpy()
-        # also consider title in the new scores
-        if self.title_emb is not None:
-            scores1 = np.expand_dims(start_scores, 1) + (1-self.title_weight)*new_end_scores + self.title_weight * np.expand_dims(start_title_scores,1) + end_mask  # [Q, L]
-        else:
-            scores1 = np.expand_dims(start_scores, 1) + new_end_scores + end_mask  # [Q, L]
+        scores1 = np.expand_dims(start_scores, 1) + new_end_scores + end_mask  # [Q, L]
         pred_end_idxs = np.stack([each[idx] for each, idx in zip(new_end_idxs, np.argmax(scores1, 1))], 0)  # [Q]
         pred_end_vecs = np.stack([each[idx] for each, idx in zip(end.cpu().numpy(), np.argmax(scores1, 1))], 0)
         logger.debug(f'2) {time()-start_time:.3f}s: find end')
@@ -385,11 +353,7 @@ class MIPS(object):
             start = torch.FloatTensor(start).to(self.device)
             query_start = torch.FloatTensor(query_start).to(self.device)
             new_start_scores = (query_start.unsqueeze(1) * start).sum(2).cpu().numpy()
-        # also consider title in the new scores
-        if self.title_emb is not None:
-            scores2 = (1-self.title_weight)*new_start_scores + self.title_weight * np.expand_dims(end_title_scores,1)+ np.expand_dims(end_scores, 1) + start_mask  # [Q, L]
-        else:
-            scores2 = new_start_scores + np.expand_dims(end_scores, 1) + start_mask
+        scores2 = new_start_scores + np.expand_dims(end_scores, 1) + start_mask
         pred_start_idxs = np.stack([each[idx] for each, idx in zip(new_start_idxs, np.argmax(scores2, 1))], 0)  # [Q]
         pred_start_vecs = np.stack([each[idx] for each, idx in zip(start.cpu().numpy(), np.argmax(scores2, 1))], 0)
         logger.debug(f'3) {time()-start_time:.3f}s: find start')
@@ -460,13 +424,16 @@ class MIPS(object):
                 # if result['title'][0] not in results[doc_ans[da]]['title']: # For KILT, merge doc titles
                 #     results[doc_ans[da]]['title'] += result['title']
         results = sorted(results, key=lambda each_out: -each_out['score'])
-        results = list(filter(lambda x: x['score'] > -1e5, results)) # [:top_k] # get real top_k if you want
+        results = list(filter(lambda x: x['score'] > -1e5, results))[:top_k] # get real top_k if you want
         return results
 
     def search(self, query, q_texts=None,
                nprobe=256, top_k=10,
-               aggregate=False, return_idxs=False,
+               return_idxs=False,
                max_answer_length=10):
+        # Fetch from cache if set
+        if self.read_cache_results and q_texts is not None:
+            return [self.result_cache[q_text] for q_text in q_texts]
 
         # MIPS on start/end
         start_time = time()
@@ -489,7 +456,11 @@ class MIPS(object):
         # Aggregate
         outs = [self.aggregate_results(results, top_k, q_text) for results, q_text in zip(outs, q_texts)]
         if start_doc_idxs.shape[1] != top_k:
-            logger.info(f"Warning.. {doc_idxs.shape[1]} only retrieved")
-            top_k = start_doc_idxs.shape[1]
+            logger.info(f"Warning.. {start_doc_idxs.shape[1]} only retrieved")
+
+        #Add the result to cache
+        if self.overwrite_cache and q_texts is not None:
+            for q_text, out in zip(q_texts, outs):
+                self.result_cache[q_text] = out
 
         return outs

@@ -323,7 +323,10 @@ eval-od-rerank: dump-dir model-name nq-open-data
 		--model_type bert \
 		--pretrained_name_or_path SpanBERT/spanbert-base-cased \
 		--cuda \
+		--top_k 100 \
+		--rerank_top_k 10 \
 		--eval_batch_size 12 \
+		--use_phrase_index_cache \
 		--dump_dir $(DUMP_DIR) \
 		--pred_output_file pred_file_$(TITLE_W).jsonl \
 		--phrase_dump_dir /mnt/nfs/work1/696ds-s21/hmalara/phrase \
@@ -340,9 +343,10 @@ eval-od: dump-dir model-name nq-open-data
 		--model_type bert \
 		--pretrained_name_or_path SpanBERT/spanbert-base-cased \
 		--cuda \
+		--top_k 100 \
 		--eval_batch_size 12 \
 		--dump_dir $(DUMP_DIR) \
-		--pred_output_file ./prediction_eval_dump.jsonl \
+		--pred_output_file ./pred_file_original.jsonl \
 		--phrase_dump_dir /mnt/nfs/work1/696ds-s21/hmalara/phrase \
 		--index_dir start-pq/1048576_flat_PQ96_8 \
 		--query_encoder_path $(DPH_SAVE_DIR)/$(MODEL_NAME) \
