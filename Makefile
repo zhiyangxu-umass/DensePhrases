@@ -283,7 +283,7 @@ limit-threads:
 nq-open-data:
 	$(eval TRAIN_DATA=open-qa/nq-open/train_preprocessed.json)
 	$(eval DEV_DATA=open-qa/nq-open/dev_preprocessed.json)
-	$(eval TEST_DATA=open-qa/nq-open/test_preprocessed.json)
+	$(eval TEST_DATA=open-qa/nq-open/nq_test_preprocessed.json)
 	$(eval OPTIONS=--truecase)
 wq-open-data:
 	$(eval TRAIN_DATA=open-qa/webq/WebQuestions-train-nodev_preprocessed.json)
