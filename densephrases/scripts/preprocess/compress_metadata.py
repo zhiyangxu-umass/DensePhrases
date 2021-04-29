@@ -111,21 +111,28 @@ def load_doc_groups(phrase_dump_dir):
                 if c is 100:
                     break
         break
-
     return doc_groups
 
 def main(args):
     # Use it for saving to memory
     doc_groups = load_doc_groups(args.input_dump_dir)
 
+    print(doc_groups)
+
     # Get the size of meta data before compression
     size_before_compression = get_size(doc_groups)
+
+    print(size_before_compression)
 
     # compress metadata using zlib
     doc_groups = compress(doc_groups)
 
+    print(doc_groups)
+
     # Get the size of meta data before compression
     size_after_compression = get_size(doc_groups)
+
+    print(size_after_compression)
 
     print(f"compressed by {round(size_after_compression/size_before_compression*100,2)}%")
 
