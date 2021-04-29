@@ -107,8 +107,9 @@ def load_doc_groups(phrase_dump_dir):
                 for attr in attrs:
                     doc_group[attr] = f[key].attrs[attr]
                 doc_groups[key] = doc_group
+                print(doc_group)
                 c += 1
-                if c is 100:
+                if c > 100:
                     break
         break
     return doc_groups
