@@ -205,7 +205,7 @@ def eval_inmemory(args, mips=None, query_encoder=None, tokenizer=None):
             result = mips.search(
                 query_vec[q_idx:q_idx + step],
                 q_texts=questions[q_idx:q_idx + step], nprobe=args.nprobe,
-                top_k=args.top_k, max_answer_length=args.max_answer_length,
+                top_k=args.mips_top_k, max_answer_length=args.max_answer_length,
             )
             prediction = [[ret['answer'] for ret in out] if len(out) > 0 else [''] for out in result]
             evidence = [[ret['context'] for ret in out] if len(out) > 0 else [''] for out in result]
@@ -614,7 +614,7 @@ def get_top_phrases(mips, questions, answers, query_encoder, tokenizer, batch_si
         outs = search_fn(
             query_vec,
             q_texts=questions[q_idx:q_idx + step], nprobe=args.nprobe,
-            top_k=args.top_k, return_idxs=True,
+            top_k=args.mips_top_k, return_idxs=True,
             max_answer_length=args.max_answer_length,
         )
         yield questions[q_idx:q_idx + step], answers[q_idx:q_idx + step], outs
@@ -697,10 +697,12 @@ if __name__ == '__main__':
     parser.add_argument('--use_phrase_index_cache', default=False, action='store_true',
                         help="Whether to bypass MIPS phrase index search by using cache. Depends on whether a cache "
                              "exists for the folder")
+    parser.add_argument('--mips_top_k', default=100, type=int,
+                        help="Top k results to retrieve from phrase search from mips")
 
     # These can be dynamically changed.
     parser.add_argument('--max_answer_length', default=10, type=int)
-    parser.add_argument('--top_k', default=10, type=int)
+    parser.add_argument('--top_k', default=10, type=int, help="Top k results for evaluation.")
     parser.add_argument('--nprobe', default=256, type=int)
     parser.add_argument('--truecase', default=False, action='store_true')
     parser.add_argument("--truecase_path", default='truecase/english_with_questions.dist', type=str)
@@ -745,7 +747,7 @@ if __name__ == '__main__':
 
     # reranking options
     parser.add_argument('--rerank', default=False, action='store_true', help="Reranks the results using a reranker")
-    parser.add_argument('--rerank_top_k', default=False, action='store_true', help="Filter the top k after reranking")
+    parser.add_argument('--rerank_top_k', default=10, type=int, help="Filter the top k after reranking")
     parser.add_argument('--extra_embed_path',
                         default=os.path.join(os.environ['DPH_DATA_DIR'], 'kilt_ks_wikidump/extra_emb'),
                         help="Path of the extra embeddings that are to be used for reranking")
@@ -774,6 +776,8 @@ if __name__ == '__main__':
 
     if args.run_mode == 'train_query':
         # Train
+        args.mips_top_k = args.top_k
+        args.rerank_top_k = args.top_k
         mips = load_phrase_index(args)
         train_query_encoder(args, mips)
 
@@ -781,6 +785,8 @@ if __name__ == '__main__':
         args.query_encoder_path = args.output_dir
         logger.info(f"Evaluating {args.query_encoder_path}")
         args.top_k = 10
+        args.mips_top_k = args.top_k
+        args.rerank_top_k = args.top_k
         eval_inmemory(args, mips)
 
     elif args.run_mode == 'eval_inmemory':
