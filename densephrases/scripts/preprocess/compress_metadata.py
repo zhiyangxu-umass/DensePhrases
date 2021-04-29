@@ -109,8 +109,8 @@ def load_doc_groups(phrase_dump_dir):
                 doc_groups[key] = doc_group
                 print(doc_group)
                 c += 1
-                if c > 100:
-                    break
+                # if c > 100:
+                #     break
     return doc_groups
 
 def main(args):
