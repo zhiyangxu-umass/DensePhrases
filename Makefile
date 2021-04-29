@@ -346,6 +346,7 @@ eval-od: dump-dir model-name nq-open-data
 		--phrase_dump_dir /mnt/nfs/work1/696ds-s21/hmalara/phrase \
 		--index_dir start-pq/1048576_flat_PQ96_8 \
 		--query_encoder_path $(DPH_SAVE_DIR)/$(MODEL_NAME) \
+		--top_k 100 \
 		--test_path $(DPH_DATA_DIR)/$(TEST_DATA) \
 		$(OPTIONS)
 
