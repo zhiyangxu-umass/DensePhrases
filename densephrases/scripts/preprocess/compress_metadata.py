@@ -93,12 +93,10 @@ def load_doc_groups(phrase_dump_dir):
     phrase_dump_paths = sorted(
         [os.path.join(phrase_dump_dir, name) for name in os.listdir(phrase_dump_dir) if 'hdf5' in name]
     )
-    print(phrase_dump_paths)
     doc_groups = {}
     types = ['word2char_start', 'word2char_end', 'f2o_start']
     attrs = ['context', 'title', 'section_titles', 'wikipedia_ids']
     phrase_dumps = [h5py.File(path, 'r') for path in phrase_dump_paths]
-    phrase_dumps = phrase_dumps[:1]
     for phrase_dump in tqdm(phrase_dumps, desc='loading doc groups'):
         with phrase_dump as f:
             for key in tqdm(f):
