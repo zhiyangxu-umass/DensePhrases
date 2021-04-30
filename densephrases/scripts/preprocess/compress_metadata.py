@@ -1,14 +1,15 @@
-import pdb
-import os
-import h5py
-from tqdm import tqdm
-import sys
-import zlib
-import numpy as np
-import traceback
-import blosc
-import pickle
 import argparse
+import os
+import pdb
+import pickle
+import sys
+import traceback
+
+import blosc
+import h5py
+import numpy as np
+from tqdm import tqdm
+
 
 # get size of the whole metadata
 def get_size(d):
@@ -21,15 +22,16 @@ def get_size(d):
         title_size = sys.getsizeof(d[i]['title'])
         wiki_ids_size = sys.getsizeof(d[i]['wikipedia_ids'])
         sec_titles_size = sys.getsizeof(d[i]['section_titles'])
-        size+=word2char_start_size
-        size+=word2char_end_size
-        size+=f2o_start_size
-        size+=context_size
-        size+=title_size
-        size+=wiki_ids_size
-        size+=sec_titles_size
+        size += word2char_start_size
+        size += word2char_end_size
+        size += f2o_start_size
+        size += context_size
+        size += title_size
+        size += wiki_ids_size
+        size += sec_titles_size
 
     return size
+
 
 # compress metadata using zlib
 # http://python-blosc.blosc.org/tutorial.html
@@ -38,31 +40,29 @@ def compress(d):
         word2char_start = d[i]['word2char_start']
         word2char_end = d[i]['word2char_end']
         f2o_start = d[i]['f2o_start']
-        context=d[i]['context']
-        title=d[i]['title']
+        context = d[i]['context']
+        title = d[i]['title']
         wikipedia_ids = d[i]['wikipedia_ids']
-        sec_titles = d[i]['section_titles']
-        print(type(sec_titles))
-        print(sec_titles.dtype)
+        sec_titles = d[i]['section_titles'].astype('U')
 
         # save type to use when decompressing
-        type1= word2char_start.dtype
-        type2= word2char_end.dtype
-        type3= f2o_start.dtype
+        type1 = word2char_start.dtype
+        type2 = word2char_end.dtype
+        type3 = f2o_start.dtype
         type5 = sec_titles.dtype
-        
-        d[i]['word2char_start'] = blosc.compress(word2char_start, typesize=1,cname='zlib')
-        d[i]['word2char_end'] = blosc.compress(word2char_end, typesize=1,cname='zlib')
-        d[i]['f2o_start'] = blosc.compress(f2o_start, typesize=1,cname='zlib')
-        d[i]['context'] = blosc.compress(context.encode('utf-8'),cname='zlib')
+
+        d[i]['word2char_start'] = blosc.compress(word2char_start, typesize=1, cname='zlib')
+        d[i]['word2char_end'] = blosc.compress(word2char_end, typesize=1, cname='zlib')
+        d[i]['f2o_start'] = blosc.compress(f2o_start, typesize=1, cname='zlib')
+        d[i]['context'] = blosc.compress(context.encode('utf-8'), cname='zlib')
         d[i]['title'] = blosc.compress(title.encode('utf-8'), cname='zlib')
         d[i]['wikipedia_ids'] = blosc.compress(wikipedia_ids.encode('utf-8'), cname='zlib')
-        d[i]['section_titles'] = blosc.compress(np.array(sec_titles), typesize=1, cname='zlib')
-        d[i]['dtypes']={
-                'word2char_start':type1,
-                'word2char_end':type2,
-                'f2o_start':type3,
-                'section_titles': type5
+        d[i]['section_titles'] = blosc.compress(sec_titles, cname='zlib')
+        d[i]['dtypes'] = {
+            'word2char_start': type1,
+            'word2char_end': type2,
+            'f2o_start': type3,
+            'section_titles': type5
         }
 
         # check if compression is lossless
@@ -72,12 +72,12 @@ def compress(d):
             decompressed_f2o_start = np.frombuffer(blosc.decompress(d[i]['f2o_start']), type3)
             decompressed_context = blosc.decompress(d[i]['context']).decode('utf-8')
             decompressed_wikipedia_ids = blosc.decompress(d[i]['wikipedia_ids']).decode('utf-8')
-            decompressed_section_titles = list(np.frombuffer(blosc.decompress(d[i]['section_titles']), type5))
+            decompressed_section_titles = np.frombuffer(blosc.decompress(d[i]['section_titles']), type5)
             decompressed_title = blosc.decompress(d[i]['title']).decode('utf-8')
 
             assert ((word2char_start == decompressed_word2char_start).all())
             assert ((word2char_end == decompressed_word2char_end).all())
-            assert ((f2o_start ==decompressed_f2o_start).all())
+            assert ((f2o_start == decompressed_f2o_start).all())
             assert (wikipedia_ids == decompressed_wikipedia_ids)
             assert ((sec_titles == decompressed_section_titles).all())
             assert (context == decompressed_context)
@@ -87,6 +87,7 @@ def compress(d):
             traceback.print_exc()
             pdb.set_trace()
     return d
+
 
 def load_doc_groups(phrase_dump_dir):
     phrase_dump_paths = sorted(
@@ -100,57 +101,43 @@ def load_doc_groups(phrase_dump_dir):
     phrase_dumps = phrase_dumps[:1]
     for phrase_dump in tqdm(phrase_dumps, desc='loading doc groups'):
         with phrase_dump as f:
-            c = 1
-            for key, group in tqdm(f.items()):
+            for key in tqdm(f):
                 doc_group = {}
-                print(key, c, doc_group)
                 for type_ in types:
-                    doc_group[type_] = group[type_][:]
-                print(doc_group)
+                    doc_group[type_] = f[key][type_][:]
                 for attr in attrs:
-                    doc_group[attr] = group.attrs[attr]
-                print(doc_group)
+                    doc_group[attr] = f[key].attrs[attr]
                 doc_groups[key] = doc_group
-                print(doc_groups)
-                c += 1
-                if c > 100:
-                    break
-        break
     return doc_groups
+
 
 def main(args):
     # Use it for saving to memory
     doc_groups = load_doc_groups(args.input_dump_dir)
 
-    print(doc_groups)
-
     # Get the size of meta data before compression
     size_before_compression = get_size(doc_groups)
-
-    print(size_before_compression)
 
     # compress metadata using zlib
     doc_groups = compress(doc_groups)
 
-    print(doc_groups)
-
     # Get the size of meta data before compression
     size_after_compression = get_size(doc_groups)
 
-    print(size_after_compression)
-
-    print(f"compressed by {round(size_after_compression/size_before_compression*100,2)}%")
+    print(
+        f"compressed by {round((size_before_compression - size_after_compression) / size_before_compression * 100, 2)}%")
 
     # save compressed meta as a pickle format
     output_file = os.path.join(args.output_dir, 'dph_meta_compressed.pkl')
-    with open(output_file,'wb') as f:
+    with open(output_file, 'wb') as f:
         pickle.dump(doc_groups, f)
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
 
-    parser.add_argument('--input_dump_dir', type=str, default='dump/sbcd_sqdqgnqqg_inb64_s384_sqdnq_pinb2_0_20181220_concat/dump/phrase')
-    parser.add_argument('--output_dir', type=str, default='./')
+    parser.add_argument('--input_dump_dir', type=str, default='/mnt/nfs/work1/696ds-s21/hmalara/phrase')
+    parser.add_argument('--output_dir', type=str, default='/mnt/nfs/work1/696ds-s21/hmalara/phrase')
     args = parser.parse_args()
-    
+
     main(args)

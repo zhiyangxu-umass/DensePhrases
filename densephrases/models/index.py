@@ -112,14 +112,13 @@ class MIPS(object):
             phrase_dump.close()
 
     def decompress_meta(self, doc_idx):
-        #TODO needs rectification
         dtypes = self.doc_groups[doc_idx]['dtypes'] # needed for store from binary stream
         word2char_start = np.frombuffer(blosc.decompress(self.doc_groups[doc_idx]['word2char_start']), dtypes['word2char_start'])
         word2char_end = np.frombuffer(blosc.decompress(self.doc_groups[doc_idx]['word2char_end']), dtypes['word2char_end'])
         f2o_start = np.frombuffer(blosc.decompress(self.doc_groups[doc_idx]['f2o_start']), dtypes['f2o_start'])
         context = blosc.decompress(self.doc_groups[doc_idx]['context']).decode('utf-8')
         wikipedia_ids = self.doc_groups[doc_idx]['wikipedia_ids'].decode('utf-8')
-        section_titles = list(np.frombuffer(blosc.decompress(self.doc_groups[doc_idx]['section_titles']), dtypes['section_titles']))
+        section_titles = np.frombuffer(blosc.decompress(self.doc_groups[doc_idx]['section_titles']), dtypes['section_titles'])
         title = self.doc_groups[doc_idx]['title'].decode('utf-8')
 
         return {
