@@ -342,9 +342,10 @@ eval-od: dump-dir model-name nq-open-data
 		--model_type bert \
 		--pretrained_name_or_path SpanBERT/spanbert-base-cased \
 		--cuda \
-		--eval_batch_size 12 \
-		--dump_dir $(DUMP_DIR) \
+		--eval_batch_size 1 \
+		--phrase_index_cache_name nq_test_preprocessed_cache.json \
 		--pred_output_file ./pred_file_original.jsonl \
+		--dump_dir $(DUMP_DIR) \
 		--phrase_dump_dir /mnt/nfs/work1/696ds-s21/hmalara/phrase \
 		--index_dir start-pq/1048576_flat_PQ96_8 \
 		--query_encoder_path $(DPH_SAVE_DIR)/$(MODEL_NAME) \
