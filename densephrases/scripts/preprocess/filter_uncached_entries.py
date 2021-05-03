@@ -2,6 +2,10 @@ import argparse
 import json
 import os
 
+from densephrases.utils.squad_utils import TrueCaser
+
+truecase = TrueCaser(os.path.join(os.environ['DPH_DATA_DIR'], 'truecase/english_with_questions.dist'))
+
 
 def filter_uncached_entries(input_data_file, input_cache_file, out_file):
     input_cache = {}
@@ -13,7 +17,7 @@ def filter_uncached_entries(input_data_file, input_cache_file, out_file):
     with open(input_data_file, 'r') as f:
         for entry in json.load(f)["data"]:
             ques = entry['question']
-            ques = ques[:-1] if ques.endswith('?') else ques
+            ques = format_query(ques[:-1] if ques.endswith('?') else ques)
             if len(entry['answers']) == 0:
                 continue
             print(ques, input_cache[ques])
@@ -23,6 +27,10 @@ def filter_uncached_entries(input_data_file, input_cache_file, out_file):
     print('Writing to %s\n' % out_file)
     with open(out_file, 'w') as f:
         json.dump({'data': filtered_entries}, f)
+
+
+def format_query(query):
+    return truecase.get_true_case(query) if query == query.lower() else query
 
 
 if __name__ == '__main__':
