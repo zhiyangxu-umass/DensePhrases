@@ -4,9 +4,6 @@ import os
 
 from densephrases.utils.squad_utils import TrueCaser
 
-truecase = TrueCaser(os.path.join(os.environ['DPH_DATA_DIR'], 'truecase/english_with_questions.dist'))
-
-
 def filter_uncached_entries(input_data_file, input_cache_file, out_file):
     input_cache = {}
     with open(input_cache_file, 'r') as f:
@@ -43,6 +40,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
     assert os.path.exists(args.input_data_file)
     assert os.path.exists(args.input_cache)
+    truecase = TrueCaser(os.path.join(os.environ['DPH_DATA_DIR'], 'truecase/english_with_questions.dist'))
     out_file = os.path.join(os.path.dirname(args.input_data_file),
                             os.path.basename(args.input_cache).replace('_cache', ''))
     filter_uncached_entries(args.input_data_file, args.input_cache, out_file)
