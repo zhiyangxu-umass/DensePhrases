@@ -36,7 +36,7 @@ if __name__ == '__main__':
     parser.add_argument('--input_cache', type=str,
                         default=os.path.join(os.environ['DPH_SAVE_DIR'],
                                              'dph-nqsqd-pb2_dev_wiki/dump/start-pq/1048576_flat_PQ96_8/nq_test_preprocessed_pq_cache.json'))
-    parser.add_argument('--truecase', default=False, action='store_true')
+    parser.add_argument('--truecase', default=True, action='store_true')
     parser.add_argument("--truecase_path", default='truecase/english_with_questions.dist', type=str)
     args = parser.parse_args()
     assert os.path.exists(args.input_data_file)
