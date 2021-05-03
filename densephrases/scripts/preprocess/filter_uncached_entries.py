@@ -11,8 +11,7 @@ def filter_uncached_entries(input_data_file, input_cache_file, out_file):
     filtered_entries = []
     with open(input_data_file, 'r') as f:
         for entry in json.load(f)["data"]:
-            ques = entry['question']
-            ques = format_query(ques)
+            ques = format_query(entry['question'])
             if len(entry['answers']) == 0:
                 continue
             if ques not in input_cache:
