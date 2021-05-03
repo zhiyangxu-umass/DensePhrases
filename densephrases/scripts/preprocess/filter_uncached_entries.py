@@ -4,7 +4,9 @@ import os
 
 
 def filter_uncached_entries(input_data_file, input_cache_file, out_file):
-    input_cache = open(input_cache_file, 'r')
+    input_cache = {}
+    with open(input_cache_file, 'r') as f:
+        input_cache = json.load(f)
     filtered_entries = []
     with open(input_data_file, 'r') as f:
         for entry in json.load(f)["data"]:
