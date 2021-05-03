@@ -282,11 +282,18 @@ class MIPS(object):
                 doc_idx: self.decompress_meta(str(doc_idx))
                 for doc_idx in set(start_doc_idxs.tolist() + end_doc_idxs.tolist()) if doc_idx >= 0
             }
-            groups_start = [{'end': np.array([
-                self.index.reconstruct(ii) for ii in range(
-                    start_idx, min(start_idx+max_answer_length, self.index.ntotal))
-                ])} for doc_idx, start_idx in zip(start_doc_idxs, orig_start_idxs)
-            ]
+            groups_start = []
+            for doc_idx, start_idx in zip(start_doc_idxs, orig_start_idxs):
+                arr = []
+                for ii in range(start_idx, min(start_idx+max_answer_length, self.index.ntotal)):
+                    print(ii)
+                    arr.append(self.index.reconstruct(ii))
+                groups_start.append({'end': np.array(arr)})
+            # groups_start = [{'end': np.array([
+            #      for ii in range(
+            #         start_idx, min(start_idx+max_answer_length, self.index.ntotal))
+            #     ])} for doc_idx, start_idx in zip(start_doc_idxs, orig_start_idxs)
+            # ]
             groups_end = [{'start': np.array([
                 self.index.reconstruct(ii) for ii in range(
                     max(0, end_idx-max_answer_length+1), end_idx+1)
