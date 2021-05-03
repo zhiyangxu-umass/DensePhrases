@@ -7,7 +7,7 @@ def filter_uncached_entries(input_data_file, input_cache_file, out_file):
     input_cache = open(input_cache_file, 'r')
     filtered_entries = []
     with open(input_data_file, 'r') as f:
-        for entry in json.loads(f)["data"]:
+        for entry in json.load(f)["data"]:
             ques = entry['question']
             ques = ques[:-1] if ques.endswith('?') else ques
             if len(entry['answers']) == 0:
