@@ -78,8 +78,10 @@ class MIPS(object):
             logger.info(f"Cache path is not set.")
             self.read_cache_results = False
             self.overwrite_cache = False
+        print(self.overwrite_cache)
 
     def __del__(self):
+        print(self.overwrite_cache)
         if self.overwrite_cache:
             with open(self.result_cache_path, 'w') as f:
                 json.dump(self.result_cache, f)
