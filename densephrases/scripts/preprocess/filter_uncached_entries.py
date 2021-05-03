@@ -31,5 +31,5 @@ if __name__ == '__main__':
     assert os.path.exists(args.input_data_file)
     assert os.path.exists(args.input_cache)
     out_file = os.path.join(os.path.dirname(args.input_data_file),
-                            os.path.basename(args.input_cache_file).replace('_cache', ''))
-    filter_uncached_entries(args.input_data_file, args.input_cache)
+                            os.path.basename(args.input_cache).replace('_cache', ''))
+    filter_uncached_entries(args.input_data_file, args.input_cache, out_file)
