@@ -108,6 +108,7 @@ def load_phrase_index(args, load_light=False):
         cuda=args.cuda,
         result_cache_dump_path=args.phrase_index_cache_path,
         return_cached_results=args.use_phrase_index_cache,
+        compressed_metadata_path=args.compressed_metadata_path,
         logging_level=logging.DEBUG if args.debug else logging.INFO
     )
     return mips
@@ -756,6 +757,8 @@ if __name__ == '__main__':
 
     if args.phrase_dump_dir is None:
         args.phrase_dump_dir = os.path.join(args.dump_dir, args.phrase_dir)
+
+    args.compressed_metadata_path = os.path.join(args.dump_dir, 'dph_meta_compressed.pkl')
 
     if not args.rerank:
         args.extra_embed_path = None

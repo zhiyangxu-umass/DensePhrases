@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 
 class MIPS(object):
     def __init__(self, phrase_dump_dir, index_path, idx2id_path, max_idx, cuda=False, result_cache_dump_path=None,
-                 return_cached_results=False, logging_level=logging.INFO):
+                 return_cached_results=False, compressed_metadata_path=None, logging_level=logging.INFO):
         self.phrase_dump_dir = phrase_dump_dir
 
         # Read index
@@ -55,8 +55,7 @@ class MIPS(object):
             self.device = torch.device("cpu")
 
         # Load metadata on RAM if possible
-        doc_group_path = os.path.join(self.phrase_dump_dir[:self.phrase_dump_dir.index('/phrase')], 'dph_meta_compressed.pkl') # 1 min
-        print(doc_group_path, index_path)
+        doc_group_path =  compressed_metadata_path # 1 min
         if os.path.exists(doc_group_path) and ('PQ' in index_path):
             logger.info(f"Loading metadata on RAM from {doc_group_path} (for PQ only)")
             self.doc_groups = pickle.load(open(doc_group_path, 'rb'))
