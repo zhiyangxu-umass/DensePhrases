@@ -17,7 +17,6 @@ def filter_uncached_entries(input_data_file, input_cache_file, out_file):
             ques = format_query(ques[:-1] if ques.endswith('?') else ques)
             if len(entry['answers']) == 0:
                 continue
-            print(ques, input_cache[ques])
             if ques not in input_cache:
                 filtered_entries.append(entry)
     print(f'Saving {len(filtered_entries)} uncached questions.')
