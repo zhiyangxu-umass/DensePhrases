@@ -56,7 +56,7 @@ class MIPS(object):
 
         # Load metadata on RAM if possible
         doc_group_path =  compressed_metadata_path # 1 min
-        if os.path.exists(doc_group_path) and ('PQ' in index_path):
+        if doc_group_path and os.path.exists(doc_group_path) and ('PQ' in index_path):
             logger.info(f"Loading metadata on RAM from {doc_group_path} (for PQ only)")
             self.doc_groups = pickle.load(open(doc_group_path, 'rb'))
         else:
