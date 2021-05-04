@@ -759,8 +759,7 @@ if __name__ == '__main__':
     if args.phrase_dump_dir is None:
         args.phrase_dump_dir = os.path.join(args.dump_dir, args.phrase_dir)
 
-    if args.use_compressed_metadata:
-        args.compressed_metadata_path = os.path.join(args.dump_dir, 'dph_meta_compressed.pkl')
+    args.compressed_metadata_path = os.path.join(args.dump_dir, 'dph_meta_compressed.pkl') if args.use_compressed_metadata else None
 
     if not args.rerank:
         args.extra_embed_path = None
