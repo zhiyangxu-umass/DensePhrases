@@ -388,24 +388,52 @@ class MIPS(object):
                  np.expand_dims(np.stack([group_end['start'][-1] for group_end in groups_end]), 1)), axis=1
             ).reshape(-1, pred_end_vecs.shape[-1])
 
-        out = [{
-            'context': groups_all[doc_idx]['context'], 'title': [groups_all[doc_idx]['title']], 'doc_idx': doc_idx,
-            'wiki_idx': groups_all[doc_idx]['wikipedia_ids'],
-            'sec_idx': sec_idx,
-            'sec_title': groups_all[doc_idx]['section_titles'][sec_idx],
-            'para_idx': para_idx,
-            'start_pos': groups_all[doc_idx]['word2char_start'][groups_all[doc_idx]['f2o_start'][start_idx]].item(),
-            'end_pos': (groups_all[doc_idx]['word2char_end'][groups_all[doc_idx]['f2o_start'][end_idx]].item()
-                if (len(groups_all[doc_idx]['word2char_end']) > 0) and (end_idx >= 0)
-                else groups_all[doc_idx]['word2char_start'][groups_all[doc_idx]['f2o_start'][start_idx]].item() + 1),
-            'start_idx': start_idx, 'end_idx': end_idx, 'score': score,
-            'start_vec': start_vecs[group_idx] if return_idxs else None,
-            'end_vec': end_vecs[group_idx] if return_idxs else None,
-            } if doc_idx >= 0 else {
-                'score': -1e8, 'context': 'dummy', 'start_pos': 0, 'end_pos': 0}
-            for group_idx, (doc_idx, sec_idx, para_idx, start_idx, end_idx, score) in enumerate(zip(
-                doc_idxs.tolist(), sec_idxs.tolist(), para_idxs.tolist() ,start_idxs.tolist(), end_idxs.tolist(), max_scores.tolist()))
-        ]
+        out = []
+        for group_idx, (doc_idx, sec_idx, para_idx, start_idx, end_idx, score) in enumerate(
+                zip(doc_idxs.tolist(), sec_idxs.tolist(), para_idxs.tolist(), start_idxs.tolist(), end_idxs.tolist(),
+                    max_scores.tolist())):
+            ele = {}
+            print(doc_idx, len(groups_all))
+            if doc_idx >= 0:
+                ele['context'] = groups_all[doc_idx]['context']
+                ele['title'] = [groups_all[doc_idx]['title']]
+                ele['doc_idx'] = doc_idx
+                ele['wiki_idx'] = groups_all[doc_idx]['wikipedia_ids']
+                ele['sec_idx'] = sec_idx
+                ele['sec_title'] = groups_all[doc_idx]['section_titles'][sec_idx]
+                ele['para_idx'] = para_idx
+                ele['start_pos'] = groups_all[doc_idx]['word2char_start'][
+                    groups_all[doc_idx]['f2o_start'][start_idx]].item()
+                ele['end_pos'] = (groups_all[doc_idx]['word2char_end'][groups_all[doc_idx]['f2o_start'][end_idx]].item()
+                                  if (len(groups_all[doc_idx]['word2char_end']) > 0) and (end_idx >= 0)
+                                  else groups_all[doc_idx]['word2char_start'][
+                                           groups_all[doc_idx]['f2o_start'][start_idx]].item() + 1)
+                ele['start_idx'] = start_idx
+                ele['end_idx'] = end_idx
+                ele['score'] = score
+                ele['start_vec'] = start_vecs[group_idx] if return_idxs else None
+                ele['end_vec'] = end_vecs[group_idx] if return_idxs else None
+            else:
+                ele = {'score': -1e8, 'context': 'dummy', 'start_pos': 0, 'end_pos': 0}
+            out.append(ele)
+        # out = [{
+        #     'context': groups_all[doc_idx]['context'], 'title': [groups_all[doc_idx]['title']], 'doc_idx': doc_idx,
+        #     'wiki_idx': groups_all[doc_idx]['wikipedia_ids'],
+        #     'sec_idx': sec_idx,
+        #     'sec_title': groups_all[doc_idx]['section_titles'][sec_idx],
+        #     'para_idx': para_idx,
+        #     'start_pos': groups_all[doc_idx]['word2char_start'][groups_all[doc_idx]['f2o_start'][start_idx]].item(),
+        #     'end_pos': (groups_all[doc_idx]['word2char_end'][groups_all[doc_idx]['f2o_start'][end_idx]].item()
+        #         if (len(groups_all[doc_idx]['word2char_end']) > 0) and (end_idx >= 0)
+        #         else groups_all[doc_idx]['word2char_start'][groups_all[doc_idx]['f2o_start'][start_idx]].item() + 1),
+        #     'start_idx': start_idx, 'end_idx': end_idx, 'score': score,
+        #     'start_vec': start_vecs[group_idx] if return_idxs else None,
+        #     'end_vec': end_vecs[group_idx] if return_idxs else None,
+        #     } if doc_idx >= 0 else {
+        #         'score': -1e8, 'context': 'dummy', 'start_pos': 0, 'end_pos': 0}
+        #     for group_idx, (doc_idx, sec_idx, para_idx, start_idx, end_idx, score) in enumerate(zip(
+        #         doc_idxs.tolist(), sec_idxs.tolist(), para_idxs.tolist() ,start_idxs.tolist(), end_idxs.tolist(), max_scores.tolist()))
+        # ]
         for each in out:
             each['answer'] = each['context'][each['start_pos']:each['end_pos']]
         out = [self.adjust(each) for each in out]
