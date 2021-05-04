@@ -393,7 +393,7 @@ class MIPS(object):
                 zip(doc_idxs.tolist(), sec_idxs.tolist(), para_idxs.tolist(), start_idxs.tolist(), end_idxs.tolist(),
                     max_scores.tolist())):
             ele = {}
-            print(doc_idx, len(groups_all))
+            #print(doc_idx, len(groups_all))
             if doc_idx >= 0:
                 ele['context'] = groups_all[doc_idx]['context']
                 ele['title'] = [groups_all[doc_idx]['title']]
