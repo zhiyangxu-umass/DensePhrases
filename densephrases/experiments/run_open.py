@@ -691,6 +691,7 @@ if __name__ == '__main__':
     parser.add_argument('--index_offset', default=int(5e8), type=int)
     parser.add_argument('--idx2id_name', default='idx2id.hdf5')
     parser.add_argument('--index_port', default='-1', type=str)
+    parser.add_argument('--use_compressed_metadata', default=False,  action='store_true')
     parser.add_argument('--phrase_index_cache_name', default='nq_test_preprocessed_cache.json', type=str,
                         help="Name of the cache where the retrieved results from phrase MIPS index are stored."
                              " The file is stored in index_dir inside dump dir")
@@ -758,7 +759,8 @@ if __name__ == '__main__':
     if args.phrase_dump_dir is None:
         args.phrase_dump_dir = os.path.join(args.dump_dir, args.phrase_dir)
 
-    args.compressed_metadata_path = os.path.join(args.dump_dir, 'dph_meta_compressed.pkl')
+    if args.use_compressed_metadata:
+        args.compressed_metadata_path = os.path.join(args.dump_dir, 'dph_meta_compressed.pkl')
 
     if not args.rerank:
         args.extra_embed_path = None
