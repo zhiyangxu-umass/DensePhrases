@@ -379,7 +379,7 @@ def evaluate_results(predictions, wiki_idxs, sec_titles, sec_idxs, para_idxs, qi
     if not os.path.exists(pred_dir):
         os.makedirs(pred_dir)
     pred_path = os.path.join(
-        pred_dir, os.path.splitext(os.path.basename(args.test_path))[0] + f'_{total}.pred'
+        pred_dir, os.path.splitext(os.path.basename(args.pred_output_file))[0] + f'_{total}.pred'
     )
     logger.info(f'Saving prediction file to {pred_path}')
     with open(pred_path, 'w') as f:
@@ -473,7 +473,7 @@ def evaluate_results_kilt(predictions, qids, questions, answers, args, evidences
 
     # dump custom predictions
     pred_path = os.path.join(
-        pred_dir, os.path.splitext(os.path.basename(args.test_path))[0] + f'_{total}.pred'
+        pred_dir, os.path.splitext(os.path.basename(args.pred_output_file))[0] + f'_{total}.pred'
     )
     logger.info(f'Saving custom prediction file to {pred_path}')
     with open(pred_path, 'w') as f:
