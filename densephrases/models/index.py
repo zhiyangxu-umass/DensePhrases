@@ -69,7 +69,8 @@ class MIPS(object):
             self.read_cache_results = return_cached_results
             if os.path.exists(self.result_cache_path):
                 logger.info(f"Reading the cached results from {self.result_cache_path}")
-                self.result_cache = json.loads(self.result_cache_path)
+                with open(self.result_cache_path, 'r') as f:
+                    self.result_cache = json.load(f)
             else:
                 logger.info(f"No cache exists at path {self.result_cache_path}. Cannot read if set to read.")
                 self.read_cache_results = False
