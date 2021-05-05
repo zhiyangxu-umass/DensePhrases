@@ -254,7 +254,8 @@ def eval_inmemory(args, mips=None, query_encoder=None, tokenizer=None):
             para_idxs += para_idx
             for step_id in range(step):
                 o = {'q_id': qids[q_idx + step_id], 'question': questions[q_idx + step_id],
-                     'gt_answer': answers[q_idx + step_id], 'pred_answer': prediction[step_id], 'score': score[step_id],
+                     'gt_answer': answers[q_idx + step_id], 'pred_answer': prediction[step_id],
+                     'score': str(score[step_id]),
                      'title': title[step_id], 'sec_title': sec_title[step_id], 'sec_id': sec_idx[step_id],
                      'para_id': para_idx[step_id], 'evidence': evidence[step_id]}
                 fout.write(json.dumps(o) + '\n')
