@@ -20,6 +20,7 @@ from transformers import (
 )
 
 from densephrases.models import DensePhrases, MIPS, MIPSLight
+from densephrases.models.title_reranker import TitleBasedReranker
 from densephrases.utils.embed_utils import get_question_results
 from densephrases.utils.eval_utils import f1_score, exact_match_score, drqa_exact_match_score, \
     drqa_regex_match_score, drqa_metric_max_over_ground_truths
@@ -114,6 +115,18 @@ def load_phrase_index(args, load_light=False):
     return mips
 
 
+def load_rerankers(args):
+    # Add more rerankers as and when added
+    title_reranker = TitleBasedReranker(
+        title_emb_path=args.extra_embed_path,
+        title_rerank_weight=args.title_embed_weight,
+        modify_original_score=not args.record_all_rerank_scores,
+        cuda=args.cuda,
+        logging_level=logging.DEBUG if args.debug else logging.INFO
+    )
+    return title_reranker
+
+
 def embed_all_query(questions, args, query_encoder, tokenizer, batch_size=48):
     query2vec = get_query2vec(
         query_encoder=query_encoder, tokenizer=tokenizer, args=args, batch_size=batch_size
@@ -183,9 +196,11 @@ def eval_inmemory(args, mips=None, query_encoder=None, tokenizer=None):
         query_encoder, tokenizer = load_query_encoder(device, args)
     query_vec = embed_all_query(questions, args, query_encoder, tokenizer)
 
-    # Load MIPS
+    # Load MIPS and rerankers
     if mips is None:
         mips = load_phrase_index(args)
+    if args.rerank:
+        title_reranker = load_rerankers(args)
 
     # Search
     step = args.eval_batch_size
@@ -207,6 +222,14 @@ def eval_inmemory(args, mips=None, query_encoder=None, tokenizer=None):
                 q_texts=questions[q_idx:q_idx + step], nprobe=args.nprobe,
                 top_k=args.mips_top_k, max_answer_length=args.max_answer_length,
             )
+            if args.rerank:
+                result = title_reranker.rerank(query_vec[q_idx:q_idx + step], result)
+                # Filter top k after all rerankings
+                for i in range(len(result)):
+                    result[i] = result[i][:args.rerank_top_k]
+                if args.record_all_rerank_scores:
+                    scores_to_record = ['score', 'title_rerank_score']
+
             prediction = [[ret['answer'] for ret in out] if len(out) > 0 else [''] for out in result]
             evidence = [[ret['context'] for ret in out] if len(out) > 0 else [''] for out in result]
             title = [[ret['title'] for ret in out] if len(out) > 0 else [['']] for out in result]
@@ -214,7 +237,13 @@ def eval_inmemory(args, mips=None, query_encoder=None, tokenizer=None):
             sec_title = [[ret['sec_title'] for ret in out] if len(out) > 0 else [['']] for out in result]
             sec_idx = [[ret['sec_idx'] for ret in out] if len(out) > 0 else [['']] for out in result]
             para_idx = [[ret['para_idx'] for ret in out] if len(out) > 0 else [['']] for out in result]
-            score = [[ret['score'] for ret in out] if len(out) > 0 else [-1e10] for out in result]
+            if args.rerank and args.record_all_rerank_scores:
+                score = [
+                    [dict([(score_field, ret[score_field]) for score_field in scores_to_record]) for ret in out] if len(
+                        out) > 0 else [dict([(score_field, -1e10) for score_field in scores_to_record])] for out in
+                    result]
+            else:
+                score = [[ret['score'] for ret in out] if len(out) > 0 else [-1e10] for out in result]
             predictions += prediction
             evidences += evidence
             titles += title
@@ -317,13 +346,18 @@ def evaluate_results(predictions, wiki_idxs, sec_titles, sec_idxs, para_idxs, qi
 
         pred_out[qids[i]] = {
             'question': questions[i],
-            'answer': answers[i], 'prediction': predictions[i], 'score': scores[i], 'title': titles[i],
+            'answer': answers[i], 'prediction': predictions[i], 'title': titles[i],
             'wiki_idx': wiki_idxs[i], 'sec_title': sec_titles[i], 'sec_idx': sec_idxs[i], 'para_idx': para_idxs[i],
             'evidence': evidences[i] if evidences is not None else '',
             'em_top1': bool(em_top1), f'em_top{args.top_k}': bool(em_topk),
             'f1_top1': f1_top1, f'f1_top{args.top_k}': f1_topk,
             'q_tokens': q_tokens[i] if q_tokens is not None else ['']
         }
+        if args.rerank and args.record_all_rerank_scores:
+            for key, value in scores[i].items():
+                pred_out[qids[i]][key] = value
+        else:
+            pred_out[qids[i]]['score'] = scores[i]
 
     total = len(predictions)
     exact_match_top1 = 100.0 * exact_match_top1 / total
@@ -427,10 +461,15 @@ def evaluate_results_kilt(predictions, qids, questions, answers, args, evidences
 
         pred_out[qids[i]] = {
             'question': questions[i],
-            'answer': answers[i], 'prediction': predictions[i], 'score': scores[i], 'title': titles[i],
+            'answer': answers[i], 'prediction': predictions[i], 'title': titles[i],
             'evidence': evidences[i] if evidences is not None else '',
             'em_top1': bool(local_accuracy),
         }
+        if args.rerank and args.record_all_rerank_scores:
+            for key, value in scores[i].items():
+                pred_out[qids[i]][key] = value
+        else:
+            pred_out[qids[i]]['score'] = scores[i]
 
     # dump custom predictions
     pred_path = os.path.join(
@@ -691,8 +730,8 @@ if __name__ == '__main__':
     parser.add_argument('--index_offset', default=int(5e8), type=int)
     parser.add_argument('--idx2id_name', default='idx2id.hdf5')
     parser.add_argument('--index_port', default='-1', type=str)
-    parser.add_argument('--use_compressed_metadata', default=False,  action='store_true')
-    parser.add_argument('--phrase_index_cache_name', default='nq_test_preprocessed_cache.json', type=str,
+    parser.add_argument('--use_compressed_metadata', default=False, action='store_true')
+    parser.add_argument('--phrase_index_cache_name', default='nq_test_preprocessed_pq_cache.json', type=str,
                         help="Name of the cache where the retrieved results from phrase MIPS index are stored."
                              " The file is stored in index_dir inside dump dir")
     parser.add_argument('--use_phrase_index_cache', default=False, action='store_true',
@@ -749,6 +788,8 @@ if __name__ == '__main__':
     # reranking options
     parser.add_argument('--rerank', default=False, action='store_true', help="Reranks the results using a reranker")
     parser.add_argument('--rerank_top_k', default=10, type=int, help="Filter the top k after reranking")
+    parser.add_argument('--record_all_rerank_scores', default=True, action='store_true',
+                        help="Records all rerank scores separately")
     parser.add_argument('--extra_embed_path',
                         default=os.path.join(os.environ['DPH_DATA_DIR'], 'kilt_ks_wikidump/extra_emb'),
                         help="Path of the extra embeddings that are to be used for reranking")
@@ -759,7 +800,8 @@ if __name__ == '__main__':
     if args.phrase_dump_dir is None:
         args.phrase_dump_dir = os.path.join(args.dump_dir, args.phrase_dir)
 
-    args.compressed_metadata_path = os.path.join(args.dump_dir, 'dph_meta_compressed.pkl') if args.use_compressed_metadata else None
+    args.compressed_metadata_path = os.path.join(args.dump_dir,
+                                                 'dph_meta_compressed.pkl') if args.use_compressed_metadata else None
 
     if not args.rerank:
         args.extra_embed_path = None
