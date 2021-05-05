@@ -239,11 +239,13 @@ def eval_inmemory(args, mips=None, query_encoder=None, tokenizer=None):
             para_idx = [[ret['para_idx'] for ret in out] if len(out) > 0 else [['']] for out in result]
             if args.rerank and args.record_all_rerank_scores:
                 score = [
-                    [dict([(score_field, ret[score_field]) for score_field in scores_to_record]) for ret in out] if len(
-                        out) > 0 else [dict([(score_field, -1e10) for score_field in scores_to_record])] for out in
+                    [dict([(score_field, str(ret[score_field])) for score_field in scores_to_record]) for ret in
+                     out]
+                    if len(out) > 0 else [dict([(score_field, str(-1e10)) for score_field in scores_to_record])] for out
+                    in
                     result]
             else:
-                score = [[ret['score'] for ret in out] if len(out) > 0 else [-1e10] for out in result]
+                score = [[ret['score'] for ret in out] if len(out) > 0 else [str(-1e10)] for out in result]
             predictions += prediction
             evidences += evidence
             titles += title
@@ -255,7 +257,7 @@ def eval_inmemory(args, mips=None, query_encoder=None, tokenizer=None):
             for step_id in range(step):
                 o = {'q_id': qids[q_idx + step_id], 'question': questions[q_idx + step_id],
                      'gt_answer': answers[q_idx + step_id], 'pred_answer': prediction[step_id],
-                     'score': str(score[step_id]),
+                     'score': score[step_id],
                      'title': title[step_id], 'sec_title': sec_title[step_id], 'sec_id': sec_idx[step_id],
                      'para_id': para_idx[step_id], 'evidence': evidence[step_id]}
                 fout.write(json.dumps(o) + '\n')
@@ -347,19 +349,13 @@ def evaluate_results(predictions, wiki_idxs, sec_titles, sec_idxs, para_idxs, qi
 
         pred_out[qids[i]] = {
             'question': questions[i],
-            'answer': answers[i], 'prediction': predictions[i], 'title': titles[i],
+            'answer': answers[i], 'prediction': predictions[i], 'title': titles[i], 'scores': scores[i],
             'wiki_idx': wiki_idxs[i], 'sec_title': sec_titles[i], 'sec_idx': sec_idxs[i], 'para_idx': para_idxs[i],
             'evidence': evidences[i] if evidences is not None else '',
             'em_top1': bool(em_top1), f'em_top{args.top_k}': bool(em_topk),
             'f1_top1': f1_top1, f'f1_top{args.top_k}': f1_topk,
             'q_tokens': q_tokens[i] if q_tokens is not None else ['']
         }
-        if args.rerank and args.record_all_rerank_scores:
-            print(scores[i])
-            for key, value in scores[i].items():
-                pred_out[qids[i]][key] = value
-        else:
-            pred_out[qids[i]]['score'] = scores[i]
 
     total = len(predictions)
     exact_match_top1 = 100.0 * exact_match_top1 / total
@@ -463,15 +459,10 @@ def evaluate_results_kilt(predictions, qids, questions, answers, args, evidences
 
         pred_out[qids[i]] = {
             'question': questions[i],
-            'answer': answers[i], 'prediction': predictions[i], 'title': titles[i],
+            'answer': answers[i], 'prediction': predictions[i], 'title': titles[i], 'scores': scores[i],
             'evidence': evidences[i] if evidences is not None else '',
             'em_top1': bool(local_accuracy),
         }
-        if args.rerank and args.record_all_rerank_scores:
-            for key, value in scores[i].items():
-                pred_out[qids[i]][key] = value
-        else:
-            pred_out[qids[i]]['score'] = scores[i]
 
     # dump custom predictions
     pred_path = os.path.join(
