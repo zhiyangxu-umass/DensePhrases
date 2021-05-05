@@ -58,7 +58,6 @@ class Reranker(ABC):
             mips_scores.append(np.stack(scores))
         start_extra_emb, end_extra_emb, mips_scores = np.stack(start_extra_emb), np.stack(end_extra_emb), np.stack(
             mips_scores)
-        print(start_extra_emb.shape, end_extra_emb.shape, query_start.shape, query_end.shape, mips_scores.shape)
         assert start_extra_emb.shape == end_extra_emb.shape == query_start.shape == query_end.shape
         assert start_extra_emb.shape[0] == end_extra_emb.shape[0] == mips_scores.shape[0] == num_queries
 
@@ -71,10 +70,8 @@ class Reranker(ABC):
             query_start_t = torch.FloatTensor(query_start).to(self.device)
             query_end_t = torch.FloatTensor(query_end).to(self.device)
             mips_scores_t = torch.FloatTensor(mips_scores).to(self.device)
-            print(start_extra_emb.shape, end_extra_emb.shape, query_start_t.shape, query_end_t.shape)
             start_emb_scores = (query_start_t * start_extra_emb).sum(2)
             end_emb_scores = (query_end_t * end_extra_emb).sum(2)
-            print(start_emb_scores.shape, end_emb_scores.shape)
             rerank_start_scores = (1 - self.rerank_weight) * mips_scores_t + self.rerank_weight * start_emb_scores
             rerank_end_scores = (1 - self.rerank_weight) * mips_scores_t + self.rerank_weight * end_emb_scores
             rerank_start_scores = rerank_start_scores.cpu().numpy()

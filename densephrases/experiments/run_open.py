@@ -263,8 +263,8 @@ def eval_inmemory(args, mips=None, query_encoder=None, tokenizer=None):
             print('Error during evaluation:', e)
             traceback.print_exc()
             continue
-
-    logger.info(f"Avg. {sum(mips.num_docs_list) / len(mips.num_docs_list):.2f} number of docs per query")
+    if not args.use_phrase_index_cache:
+        logger.info(f"Avg. {sum(mips.num_docs_list) / len(mips.num_docs_list):.2f} number of docs per query")
     eval_fn = evaluate_results if not args.is_kilt else evaluate_results_kilt
     return eval_fn(predictions, wiki_idxs, sec_titles, sec_idxs, para_idxs, qids, questions, answers, args, evidences,
                    scores, titles)
