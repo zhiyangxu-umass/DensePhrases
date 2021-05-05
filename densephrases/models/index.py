@@ -23,6 +23,31 @@ class MIPS(object):
     def __init__(self, phrase_dump_dir, index_path, idx2id_path, max_idx, cuda=False, result_cache_dump_path=None,
                  return_cached_results=False, compressed_metadata_path=None, logging_level=logging.INFO):
         self.phrase_dump_dir = phrase_dump_dir
+        logger.setLevel(logging_level)
+
+        # Set cache for reading or overwriting
+        if result_cache_dump_path is not None:
+            self.result_cache_path = result_cache_dump_path
+            self.result_cache = {}
+            self.read_cache_results = return_cached_results
+            if os.path.exists(self.result_cache_path):
+                logger.info(f"Reading the cached results from {self.result_cache_path}")
+                with open(self.result_cache_path, 'r') as f:
+                    self.result_cache = json.load(f)
+            else:
+                logger.info(f"No cache exists at path {self.result_cache_path}. Cannot read if set to read.")
+                self.read_cache_results = False
+            self.overwrite_cache = not self.read_cache_results
+        else:
+            logger.info(f"Cache path is not set.")
+            self.read_cache_results = False
+            self.overwrite_cache = False
+        print('Read cache results:', self.read_cache_results)
+        print('Overwrite cache:', self.overwrite_cache)
+
+        # Can skip index loading and metadata loading if reading from cache
+        if self.read_cache_results:
+            return
 
         # Read index
         self.index = {}
@@ -40,7 +65,6 @@ class MIPS(object):
         self.doc_groups = None
 
         # Options
-        logger.setLevel(logging_level)
         self.num_docs_list = []
         self.cuda = cuda
         if self.cuda:
@@ -61,27 +85,6 @@ class MIPS(object):
             self.doc_groups = pickle.load(open(doc_group_path, 'rb'))
         else:
             logger.info(f"Will read metadata directly from hdf5 files (requires SSDs for faster inference)")
-
-        # Set cache for reading or overwriting
-        if result_cache_dump_path is not None:
-            self.result_cache_path = result_cache_dump_path
-            self.result_cache = {}
-            self.read_cache_results = return_cached_results
-            if os.path.exists(self.result_cache_path):
-                logger.info(f"Reading the cached results from {self.result_cache_path}")
-                with open(self.result_cache_path, 'r') as f:
-                    self.result_cache = json.load(f)
-            else:
-                logger.info(f"No cache exists at path {self.result_cache_path}. Cannot read if set to read.")
-                self.read_cache_results = False
-            self.overwrite_cache = not self.read_cache_results
-            print(self.read_cache_results)
-            print(self.overwrite_cache)
-        else:
-            logger.info(f"Cache path is not set.")
-            self.read_cache_results = False
-            self.overwrite_cache = False
-            print(self.overwrite_cache)
                     
 
     def __del__(self):
