@@ -355,6 +355,7 @@ def evaluate_results(predictions, wiki_idxs, sec_titles, sec_idxs, para_idxs, qi
             'q_tokens': q_tokens[i] if q_tokens is not None else ['']
         }
         if args.rerank and args.record_all_rerank_scores:
+            print(scores[i])
             for key, value in scores[i].items():
                 pred_out[qids[i]][key] = value
         else:
