@@ -88,7 +88,6 @@ class MIPS(object):
                     
 
     def __del__(self):
-        print(self.overwrite_cache)
         if self.overwrite_cache:
             with open(self.result_cache_path, 'w') as f:
                 json.dump(self.result_cache, f)
