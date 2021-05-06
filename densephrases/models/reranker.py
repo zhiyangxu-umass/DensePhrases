@@ -33,7 +33,7 @@ class Reranker(ABC):
 
     def rerank(self, query, results):
         if self.rerank_weight == 0.0:
-            logger.info("No reranking is weight is 0.0")
+            logger.debug("No reranking as weight is 0.0")
             return results
         start_time = time()
         # Construct start and end queries
