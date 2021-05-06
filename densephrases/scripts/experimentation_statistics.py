@@ -185,12 +185,9 @@ def get_repr_stat(stat, show=1):
     return org_stat
 
 
-def update_stats(stat, hits, stat_el):
+def update_stats(stat, hits, ans_hit, stat_el):
     stat['total'] += 1
-    if stat_el['gold_output']['answer'] == stat_el['pred_output']['answer']:
-        stat = stat['ans_hit']
-    else:
-        stat = stat['ans_miss']
+    stat = stat['ans_hit'] if ans_hit else stat['ans_miss']
     stat['total'] += 1
     if hits == -1:
         stat['no_prov']['total'] += 1
@@ -220,17 +217,18 @@ def generate_stats(data_map, pred_out_list, eval_top_k=10):
     stat = get_stat_skeleton()
     for preds_out in pred_out_list:
         gold_data = data_map[preds_out['qid']]
-        best_gold_output, best_pred_output, max_meta_hits, any_ans_hit = None, None, -1, False
-        for pred_out in preds_out['output'][:eval_top_k]:
+        best_pred = {'qid': preds_out['qid'], 'question': preds_out['question'],
+                     'gold_output': None, 'pred_output': None, 'rank': -1}
+        max_meta_hits, any_ans_hit = -1, False
+        for i, pred_out in enumerate(preds_out['output'][:eval_top_k]):
             output, hits, ans_hit = get_gold_output_with_max_hits(gold_data['output'], pred_out)
             # If hits are more or there is ans hit for the first time as it overrides previous non-hits
             if hits > max_meta_hits or (ans_hit and not any_ans_hit):
-                best_gold_output, best_pred_output, max_meta_hits, any_ans_hit = output, pred_out, hits, ans_hit
+                max_meta_hits, any_ans_hit = hits, ans_hit
+                best_pred['gold_output'], best_pred['pred_output'], best_pred['rank']= output, pred_out, i
 
-        elem = {'qid': preds_out['qid'], 'question': preds_out['question'],
-                'gold_output': best_gold_output, 'pred_output': best_pred_output}
         print('\n\nBefore stat:', stat)
-        update_stats(stat, max_meta_hits, elem)
+        update_stats(stat, max_meta_hits, any_ans_hit, best_pred)
         print('\n\nAfter update', stat)
     stat['skipped'] = len(data_map) - stat['total']
     return stat
