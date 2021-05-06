@@ -14,16 +14,16 @@ def get_test_data_map(test_data_file):
                 "question": rec['question'],
                 "output": [
                     {
-                        'answer': rec['answers'][i].lower().strip(),
+                        'answer': answer.lower().strip(),
                         'provenances': [
                             {
-                                'title': rec['provenances'][i][j]['title'].strip().lower(),
-                                'sec_title': rec['provenances'][i][j]['section_title'].strip().lower(),
-                                'para_id': int(rec['provenances'][i][j]['paragraph_id']),
+                                'title': prov['title'].strip().lower(),
+                                'sec_title': prov['section_title'].strip().lower(),
+                                'para_id': int(prov['paragraph_id']),
                             }
-                            for j in enumerate(rec['provenances'][i])]
+                            for prov in rec['provenances'][i]]
                     }
-                    for i in enumerate(rec['answers'])]
+                    for i, answer in enumerate(rec['answers'])]
             }
         return data_map
 
@@ -45,7 +45,7 @@ def get_pred_output(pred_out_file):
                             'mips_score': float(line['score'][i]['score']),
                             'title_rerank_score': float(line['score'][i]['title_rerank_score'])
                         }
-                        for i in enumerate(line['pred_answer'])
+                        for i in range(len(line['pred_answer']))
                     ]
                 }
             )
