@@ -78,6 +78,7 @@ def get_gold_output_with_max_hits(gold_output_list, pred_output):
     ans_hit = False  # If any of the answers match
     final_ans, final_prov = None, None
     for gold_output in gold_output_list:
+        print(gold_output, pred_output)
         if gold_output['answer'] == pred_output['answer']:
             best_prov, hits = get_gold_provenance_with_max_hits(gold_output, pred_output)
             if not ans_hit:
