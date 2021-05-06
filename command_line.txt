@@ -3,3 +3,6 @@ make eval-od MODEL_NAME=dph-nqsqd-pb2_pq96-nq-10 DUMP_DIR=$DPH_SAVE_DIR/dph-nqsq
 
 # To find statistics
 make get-diffqa-stats TITLE_W=0.1 SHOW_EXP=0 | less
+
+# for rerank
+make eval-od-rerank MODEL_NAME=dph-nqsqd-pb2 DUMP_DIR=$DPH_SAVE_DIR/dph-nqsqd-pb2_dev_wiki/dump/ TITLE_W=0.0
