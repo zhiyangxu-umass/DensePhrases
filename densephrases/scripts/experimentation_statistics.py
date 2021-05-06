@@ -37,7 +37,10 @@ def get_test_data_map(test_data_file):
 def get_pred_output(pred_out_file):
     with jsonlines.open(pred_out_file) as reader:
         output = []
+        first = None
         for line in reader:
+            if first is None:
+                first = line
             output.append(
                 {
                     'qid': line['q_id'].strip(),
@@ -55,7 +58,7 @@ def get_pred_output(pred_out_file):
                     ]
                 }
             )
-        print(f"Prediction output: {reader[0]} => {output[0]}")
+        print(f"Prediction output: {first} => {output[0]}")
         return output
 
 
