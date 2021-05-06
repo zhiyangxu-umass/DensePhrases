@@ -557,4 +557,4 @@ get-diffqa-stats: nq-open-data
 		--pred_file ./pred_file_$(TITLE_W).jsonl \
 		--stat_out_file ./stat_out_$(TITLE_W).json \
 		--eval_top_k 10 \
-		--show_top_k 2
+		--show_top_k $(SHOW_EXP)
