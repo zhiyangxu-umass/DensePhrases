@@ -191,10 +191,10 @@ def update_stats(stat, hits, stat_el):
 
 def generate_stats(data_map, pred_out_list, eval_top_k=10):
     stat = get_stat_skeleton()
-    for pred in pred_out_list:
-        gold_data = data_map[pred['qid']]
+    for preds_out in pred_out_list:
+        gold_data = data_map[preds_out['qid']]
         best_gold_output, best_pred_output, max_hits = None, None, -1
-        for pred_out in pred_out_list[:eval_top_k]:
+        for pred_out in preds_out['output'][:eval_top_k]:
             output, hits = get_gold_output_with_max_hits(gold_data['output'], pred_out)
             if hits >= max_hits:
                 best_gold_output, best_pred_output, max_hits = output, pred_out, hits
