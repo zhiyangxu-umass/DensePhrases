@@ -551,9 +551,9 @@ sample-nq-reader-doc-wiki-dev: data-config
 		--docs_wiki_dir $(NQREADER_DOC_DIR)/dev_wiki \
 		--output_dir $(NQREADER_DOC_DIR)/dev_wiki_noise
 
-get_diffqa_stats: nq-open-data
-    python -m densephrases.scripts.experimentation_statistics \
-        --test_input_file $(DPH_DATA_DIR)/$(TEST_DATA) \
-        --pred_file ./pred_file_$(TITLE_W).jsonl \
-        --top_k 10 \
-        --stat_out_file ./stat_out_$(TITLE_W).json
+get-diffqa-stats: nq-open-data
+	python -m densephrases.scripts.experimentation_statistics \
+		--test_input_file $(DPH_DATA_DIR)/$(TEST_DATA) \
+		--pred_file ./pred_file_$(TITLE_W).jsonl \
+		--stat_out_file ./stat_out_$(TITLE_W).json \
+		--top_k 10
