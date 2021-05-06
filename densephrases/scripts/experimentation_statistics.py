@@ -73,6 +73,8 @@ def get_gold_provenance_with_max_hits(gold_output, pred_output):
     max_hits = 0
     best_prov = None
     if len(gold_output['provenances']) == 0:
+        print(
+            f"\n\nget_gold_provenance_with_max_hits: \n\nGold:{gold_output} \n\nPred:{pred_output} => {best_prov} {-1}")
         return best_prov, -1
     for prov in gold_output['provenances']:
         hits = 0
