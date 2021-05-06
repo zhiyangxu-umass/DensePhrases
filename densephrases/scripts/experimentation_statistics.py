@@ -8,11 +8,12 @@ import jsonlines
 
 def get_test_data_map(test_data_file):
     with open(test_data_file, 'r') as f:
+        data = json.load(f)['data']
         data_map = {}
-        for rec in json.load(f)['data']:
+        for rec in data:
             data_map[rec['id'].strip()] = {
-                "question": rec['question'],
-                "output": [
+                'question': rec['question'],
+                'output': [
                     {
                         'answer': answer.lower().strip(),
                         'provenances': [
@@ -28,6 +29,8 @@ def get_test_data_map(test_data_file):
                     }
                     for i, answer in enumerate(rec['answers'])]
             }
+
+        print(f"Data Map: {data[0]} => data_map[{data[0]['id']}]={data_map[data[0]['id']]}")
         return data_map
 
 
@@ -52,6 +55,7 @@ def get_pred_output(pred_out_file):
                     ]
                 }
             )
+        print(f"Prediction output: {reader[0]} => {output[0]}")
         return output
 
 
@@ -73,6 +77,7 @@ def get_gold_provenance_with_max_hits(gold_output, pred_output):
         if hits > max_hits:
             max_hits = hits
             best_prov = prov
+    print(f"get_gold_provenance_with_max_hits: Gold:{gold_output} Pred:{pred_output} => {best_prov} {max_hits}")
     return best_prov, max_hits
 
 
@@ -81,7 +86,6 @@ def get_gold_output_with_max_hits(gold_output_list, pred_output):
     ans_hit = False  # If any of the answers match
     final_ans, final_prov = None, None
     for gold_output in gold_output_list:
-        print(gold_output, pred_output)
         if gold_output['answer'] == pred_output['answer']:
             best_prov, hits = get_gold_provenance_with_max_hits(gold_output, pred_output)
             if not ans_hit:
@@ -101,6 +105,7 @@ def get_gold_output_with_max_hits(gold_output_list, pred_output):
     final_output = {'answer': final_ans}
     if final_prov is not None:
         final_output.update(final_prov)
+    print(f"get_gold_provenance_with_max_hits: Gold:{gold_output_list} Pred:{pred_output} => {final_output} {max_hits}")
     return final_output, max_hits
 
 
@@ -203,7 +208,9 @@ def generate_stats(data_map, pred_out_list, eval_top_k=10):
                 best_gold_output, best_pred_output, max_hits = output, pred_out, hits
                 elem = {'qid': preds_out['qid'], 'question': preds_out['question'],
                         'gold_output': best_gold_output, 'pred_output': best_pred_output}
+                print('Before stat:', stat)
                 update_stats(stat, max_hits, elem)
+                print('After update', stat)
     stat['skipped'] = len(data_map) - stat['total']
     return stat
 
