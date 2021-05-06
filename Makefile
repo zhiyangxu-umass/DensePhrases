@@ -327,7 +327,7 @@ eval-od-rerank: dump-dir model-name nq-open-data
 		--use_phrase_index_cache \
 		--phrase_index_cache_name nq_test_preprocessed_pq_cache.json \
 		--dump_dir $(DUMP_DIR) \
-		--pred_output_file /mnt/nfs/scratch1/hmalara/DensePhrase_Harsh_Repo/DensePhrases/outputs/dph-nqsqd-pb2_pq96-nq-10/pred_file_$(TITLE_W).jsonl \
+		--pred_output_file /mnt/nfs/scratch1/hmalara/DensePhrase-main-github/DensePhrases/pred_file_$(TITLE_W).jsonl \
 		--phrase_dump_dir /mnt/nfs/work1/696ds-s21/hmalara/phrase \
 		--index_dir start-pq/1048576_flat_PQ96_8 \
 		--query_encoder_path $(DPH_SAVE_DIR)/$(MODEL_NAME) \
