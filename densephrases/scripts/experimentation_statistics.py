@@ -95,7 +95,7 @@ def get_gold_provenance_with_max_hits(gold_output, pred_output):
 
 
 def get_gold_output_with_max_hits(gold_output_list, pred_output):
-    max_hits = -1
+    max_meta_hits = -1
     ans_hit = False  # If any of the answers match
     final_ans, final_prov = None, None
     for gold_output in gold_output_list:
@@ -103,18 +103,18 @@ def get_gold_output_with_max_hits(gold_output_list, pred_output):
             best_prov, hits = get_gold_provenance_with_max_hits(gold_output, pred_output)
             if not ans_hit:
                 # If this is first hit, this overrides all the previous outputs
-                final_ans, final_prov, max_hits = gold_output['answer'], best_prov, hits
+                final_ans, final_prov, max_meta_hits = gold_output['answer'], best_prov, hits
                 ans_hit = True
                 continue
         else:
             if ans_hit:  # If there is a answer hit, misses can be ignored
                 continue
             best_prov, hits = get_gold_provenance_with_max_hits(gold_output, pred_output)
-        # For all other cases, check if the max_hits is larger.
-        if hits > max_hits:
-            final_ans, final_prov, max_hits = gold_output['answer'], best_prov, hits
+        # For all other cases, check if the max_meta_hits is larger.
+        if hits > max_meta_hits:
+            final_ans, final_prov, max_meta_hits = gold_output['answer'], best_prov, hits
         # If max hits received and ans is already matched, then stop scanning
-        if ans_hit and max_hits == 3:
+        if ans_hit and max_meta_hits == 3:
             break
         # There should be atleast one answer set. No need to set prov it happens when hit=max_hit=-1 and ans=None
         if final_ans is None:
@@ -124,8 +124,8 @@ def get_gold_output_with_max_hits(gold_output_list, pred_output):
     if final_prov is not None:
         final_output.update(final_prov)
     print(
-        f"\n\nget_gold_output_with_max_hits: \n\nGold:{gold_output_list} \n\nPred:{pred_output} => {final_output} {max_hits}")
-    return final_output, max_hits
+        f"\n\nget_gold_output_with_max_hits: \n\nGold:{gold_output_list} \n\nPred:{pred_output} => {final_output} {max_meta_hits} {ans_hit}")
+    return final_output, max_meta_hits, ans_hit
 
 
 def get_stat_skeleton():
@@ -220,15 +220,17 @@ def generate_stats(data_map, pred_out_list, eval_top_k=10):
     stat = get_stat_skeleton()
     for preds_out in pred_out_list:
         gold_data = data_map[preds_out['qid']]
-        best_gold_output, best_pred_output, max_hits = None, None, -1
+        best_gold_output, best_pred_output, max_meta_hits, any_ans_hit = None, None, -1, False
         for pred_out in preds_out['output'][:eval_top_k]:
-            output, hits = get_gold_output_with_max_hits(gold_data['output'], pred_out)
-            if hits >= max_hits:
-                best_gold_output, best_pred_output, max_hits = output, pred_out, hits
+            output, hits, ans_hit = get_gold_output_with_max_hits(gold_data['output'], pred_out)
+            # If hits are more or there is ans hit for the first time as it overrides previous non-hits
+            if hits > max_meta_hits or (ans_hit and not any_ans_hit):
+                best_gold_output, best_pred_output, max_meta_hits, any_ans_hit = output, pred_out, hits, ans_hit
+
         elem = {'qid': preds_out['qid'], 'question': preds_out['question'],
                 'gold_output': best_gold_output, 'pred_output': best_pred_output}
         print('\n\nBefore stat:', stat)
-        update_stats(stat, max_hits, elem)
+        update_stats(stat, max_meta_hits, elem)
         print('\n\nAfter update', stat)
     stat['skipped'] = len(data_map) - stat['total']
     return stat
