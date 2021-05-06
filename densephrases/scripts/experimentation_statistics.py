@@ -30,7 +30,7 @@ def get_test_data_map(test_data_file):
                     for i, answer in enumerate(rec['answers'])]
             }
 
-        print(f"\n\nData Map: \n\n{data[0]} \n\n=> data_map[{data[0]['id']}]={data_map[data[0]['id']]}")
+        # print(f"\n\nData Map: \n\n{data[0]} \n\n=> data_map[{data[0]['id']}]={data_map[data[0]['id']]}")
         return data_map
 
 
@@ -65,7 +65,7 @@ def get_pred_output(pred_out_file):
                     ]
                 }
             )
-        print(f"\n\nPrediction output: \n\n{first} => \n\n{output[0]}")
+        # print(f"\n\nPrediction output: \n\n{first} => \n\n{output[0]}")
         return output
 
 
@@ -73,8 +73,8 @@ def get_gold_provenance_with_max_hits(gold_output, pred_output):
     max_hits = -1
     best_prov = None
     if len(gold_output['provenances']) == 0:
-        print(
-            f"\n\nget_gold_provenance_with_max_hits: \n\nGold:{gold_output} \n\nPred:{pred_output} => {best_prov} {max_hits}")
+        # print(
+        #    f"\n\nget_gold_provenance_with_max_hits: \n\nGold:{gold_output} \n\nPred:{pred_output} => {best_prov} {max_hits}")
         return best_prov, max_hits
     for prov in gold_output['provenances']:
         hits = 0
@@ -89,8 +89,8 @@ def get_gold_provenance_with_max_hits(gold_output, pred_output):
         if hits > max_hits:
             max_hits = hits
             best_prov = prov
-    print(
-        f"\n\nget_gold_provenance_with_max_hits: \n\nGold:{gold_output} \n\nPred:{pred_output} => {best_prov} {max_hits}")
+    # print(
+    #    f"\n\nget_gold_provenance_with_max_hits: \n\nGold:{gold_output} \n\nPred:{pred_output} => {best_prov} {max_hits}")
     return best_prov, max_hits
 
 
@@ -123,8 +123,8 @@ def get_gold_output_with_max_hits(gold_output_list, pred_output):
     # If none of the answers had provenance, then ignore the metadata.
     if final_prov is not None:
         final_output.update(final_prov)
-    print(
-        f"\n\nget_gold_output_with_max_hits: \n\nGold:{gold_output_list} \n\nPred:{pred_output} => {final_output} {max_meta_hits} {ans_hit}")
+    # print(
+    #     f"\n\nget_gold_output_with_max_hits: \n\nGold:{gold_output_list} \n\nPred:{pred_output} => {final_output} {max_meta_hits} {ans_hit}")
     return final_output, max_meta_hits, ans_hit
 
 
@@ -172,7 +172,7 @@ def get_repr_stat(stat, show=1):
 
     def get_repr_substat(stat):
         stat['no_prov']['examples'] = stat['no_prov']['examples'][:show]
-        stat['title_miss']['examples'] = stat['no_prov']['examples'][:show]
+        stat['title_miss']['examples'] = stat['title_miss']['examples'][:show]
         stat = stat['title_hit']
         stat['sec_miss']['examples'] = stat['sec_miss']['examples'][:show]
         stat = stat['sec_hit']
@@ -216,12 +216,27 @@ def update_stats(stat, hits, ans_hit, stat_el):
 def get_mips_rank(pred_outs, best_pred_rank):
     if best_pred_rank == -1:
         return -1
-    best_pred_rank-=1
+    best_pred_rank -= 1
     ranks = list(range(len(pred_outs)))
-    print(ranks, '->', [pred_outs[r]['mips_score'] for r in ranks])
-    ranks.sort(key=lambda r:-pred_outs[r]['mips_score'])
-    print(ranks, best_pred_rank, ranks.index(best_pred_rank)+1)
-    return ranks.index(best_pred_rank)+1
+    ranks.sort(key=lambda r: -pred_outs[r]['mips_score'])
+    return ranks.index(best_pred_rank) + 1
+
+
+def order_stat_examples(org_stat):
+    # Final rank lower than MIPS rank
+    key = lambda pred: pred['final_rank'] - pred['mips_rank']
+
+    def order_substat(stat):
+        stat['title_miss']['examples'].sort(key=key)
+        stat = stat['title_hit']
+        stat['sec_miss']['examples'].sort(key=key)
+        stat = stat['sec_hit']
+        stat['para_miss']['examples'].sort(key=key)
+        stat['para_hit']['examples'].sort(key=key)
+
+    order_substat(org_stat['ans_hit'])
+    order_substat(org_stat['ans_miss'])
+
 
 def generate_stats(data_map, pred_out_list, eval_top_k=10):
     stat = get_stat_skeleton()
@@ -236,11 +251,9 @@ def generate_stats(data_map, pred_out_list, eval_top_k=10):
             # If hits are more or there is ans hit for the first time as it overrides previous non-hits
             if hits > max_meta_hits or (ans_hit and not any_ans_hit):
                 max_meta_hits, any_ans_hit = hits, ans_hit
-                best_pred['gold_output'], best_pred['pred_output'], best_pred['final_rank']= output, pred_out, i+1
+                best_pred['gold_output'], best_pred['pred_output'], best_pred['final_rank'] = output, pred_out, i + 1
         best_pred['mips_rank'] = get_mips_rank(pred_outs, best_pred['final_rank'])
-        print('\n\nBefore stat:', stat)
         update_stats(stat, max_meta_hits, any_ans_hit, best_pred)
-        print('\n\nAfter update', stat)
     stat['skipped'] = len(data_map) - stat['total']
     return stat
 
@@ -249,7 +262,8 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--test_input_file', type=str)
     parser.add_argument('--pred_file', type=str)
-    parser.add_argument('--top_k', default=10, type=int, help="Top k results for evaluation.")
+    parser.add_argument('--eval_top_k', default=10, type=int, help="Top k results for evaluation.")
+    parser.add_argument('--show_top_k', default=10, type=int, help="Top k results for evaluation.")
     parser.add_argument('--stat_out_file', type=str)
     args = parser.parse_args()
     assert os.path.exists(args.test_input_file)
@@ -257,9 +271,10 @@ if __name__ == '__main__':
 
     pred_out = get_pred_output(args.pred_file)
     test_data_map = get_test_data_map(args.test_input_file)
-    stat = generate_stats(test_data_map, pred_out, args.top_k)
+    stat = generate_stats(test_data_map, pred_out, args.eval_top_k)
+    order_stat_examples(stat)
     print('Statistics with representative examples are as follows')
-    print(json.dumps(get_repr_stat(stat, show=1), indent=3))
+    print(json.dumps(get_repr_stat(stat, show=args.show_top_k), indent=3))
 
     with open(args.stat_out_file, 'w') as f:
         print('Writing detailed stats to ', args.stat_out_file)

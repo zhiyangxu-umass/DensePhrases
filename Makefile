@@ -556,4 +556,5 @@ get-diffqa-stats: nq-open-data
 		--test_input_file $(DPH_DATA_DIR)/$(TEST_DATA) \
 		--pred_file ./pred_file_$(TITLE_W).jsonl \
 		--stat_out_file ./stat_out_$(TITLE_W).json \
-		--top_k 10
+		--eval_top_k 10 \
+		--show_top_k 2
