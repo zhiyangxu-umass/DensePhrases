@@ -49,10 +49,17 @@ def get_pred_output(pred_out_file):
                         {
                             'answer': line['pred_answer'][i].strip().lower(),
                             'title': line['title'][i][0].strip().lower(),
-                            'sec_title': line['sec_title'][i].strip().lower(),
+                            # Empty sec_title indicate abstract
+                            'sec_title': line['sec_title'][i].strip().lower() if line['sec_title'][i] else 'abstract',
                             'para_id': int(line['para_id'][i]),
-                            'mips_score': float(line['score'][i]['score']),
-                            'title_rerank_score': float(line['score'][i]['title_rerank_score'])
+                            # If all scores recorded then read from dict else record score as is
+                            'mips_score': float(line['score'][i]['score']) if type(line['score'][i]) is dict else float(
+                                line['score'][i]),
+                            # Only available if all scores recorded in dict, also for title_weight=0.0, same as mips
+                            'title_rerank_score': (float(line['score'][i]['title_rerank_score'])
+                                                   if 'title_rerank_score' in line['score'][i]
+                                                   else float(line['score'][i]['score']))
+                            if type(line['score'][i]) is dict else None,
                         }
                         for i in range(len(line['pred_answer']))
                     ]
@@ -80,7 +87,8 @@ def get_gold_provenance_with_max_hits(gold_output, pred_output):
         if hits > max_hits:
             max_hits = hits
             best_prov = prov
-    print(f"\n\nget_gold_provenance_with_max_hits: \n\nGold:{gold_output} \n\nPred:{pred_output} => {best_prov} {max_hits}")
+    print(
+        f"\n\nget_gold_provenance_with_max_hits: \n\nGold:{gold_output} \n\nPred:{pred_output} => {best_prov} {max_hits}")
     return best_prov, max_hits
 
 
@@ -108,7 +116,8 @@ def get_gold_output_with_max_hits(gold_output_list, pred_output):
     final_output = {'answer': final_ans}
     if final_prov is not None:
         final_output.update(final_prov)
-    print(f"\n\nget_gold_output_with_max_hits: \n\nGold:{gold_output_list} \n\nPred:{pred_output} => {final_output} {max_hits}")
+    print(
+        f"\n\nget_gold_output_with_max_hits: \n\nGold:{gold_output_list} \n\nPred:{pred_output} => {final_output} {max_hits}")
     return final_output, max_hits
 
 
