@@ -213,20 +213,31 @@ def update_stats(stat, hits, ans_hit, stat_el):
         stat['para_hit']['examples'].append(stat_el)
 
 
+def get_mips_rank(pred_outs, best_pred_rank):
+    if best_pred_rank == -1:
+        return -1
+    best_pred_rank-=1
+    ranks = list(range(len(pred_outs)))
+    print(ranks, '->', [pred_outs[r]['mips_score'] for r in ranks])
+    ranks.sort(key=lambda r:-pred_outs[r]['mips_score'])
+    print(ranks, best_pred_rank, ranks.index(best_pred_rank)+1)
+    return ranks.index(best_pred_rank)+1
+
 def generate_stats(data_map, pred_out_list, eval_top_k=10):
     stat = get_stat_skeleton()
     for preds_out in pred_out_list:
         gold_data = data_map[preds_out['qid']]
         best_pred = {'qid': preds_out['qid'], 'question': preds_out['question'],
-                     'gold_output': None, 'pred_output': None, 'rank': -1}
+                     'gold_output': None, 'pred_output': None, 'final_rank': -1}
         max_meta_hits, any_ans_hit = -1, False
-        for i, pred_out in enumerate(preds_out['output'][:eval_top_k]):
+        pred_outs = preds_out['output'][:eval_top_k]
+        for i, pred_out in enumerate(pred_outs):
             output, hits, ans_hit = get_gold_output_with_max_hits(gold_data['output'], pred_out)
             # If hits are more or there is ans hit for the first time as it overrides previous non-hits
             if hits > max_meta_hits or (ans_hit and not any_ans_hit):
                 max_meta_hits, any_ans_hit = hits, ans_hit
-                best_pred['gold_output'], best_pred['pred_output'], best_pred['rank']= output, pred_out, i+1
-
+                best_pred['gold_output'], best_pred['pred_output'], best_pred['final_rank']= output, pred_out, i+1
+        best_pred['mips_rank'] = get_mips_rank(pred_outs, best_pred['final_rank'])
         print('\n\nBefore stat:', stat)
         update_stats(stat, max_meta_hits, any_ans_hit, best_pred)
         print('\n\nAfter update', stat)
