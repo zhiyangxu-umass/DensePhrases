@@ -225,7 +225,7 @@ def generate_stats(data_map, pred_out_list, eval_top_k=10):
             # If hits are more or there is ans hit for the first time as it overrides previous non-hits
             if hits > max_meta_hits or (ans_hit and not any_ans_hit):
                 max_meta_hits, any_ans_hit = hits, ans_hit
-                best_pred['gold_output'], best_pred['pred_output'], best_pred['rank']= output, pred_out, i
+                best_pred['gold_output'], best_pred['pred_output'], best_pred['rank']= output, pred_out, i+1
 
         print('\n\nBefore stat:', stat)
         update_stats(stat, max_meta_hits, any_ans_hit, best_pred)
