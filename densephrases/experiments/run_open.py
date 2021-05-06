@@ -228,7 +228,9 @@ def eval_inmemory(args, mips=None, query_encoder=None, tokenizer=None):
                 for i in range(len(result)):
                     result[i] = result[i][:args.rerank_top_k]
                 if args.record_all_rerank_scores:
-                    scores_to_record = ['score', 'title_rerank_score']
+                    scores_to_record = ['score']
+                    if args.title_embed_weight > 0.0:
+                        scores_to_record += ['title_rerank_score']
 
             prediction = [[ret['answer'] for ret in out] if len(out) > 0 else [''] for out in result]
             evidence = [[ret['context'] for ret in out] if len(out) > 0 else [''] for out in result]
