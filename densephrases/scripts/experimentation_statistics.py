@@ -198,7 +198,7 @@ def generate_stats(data_map, pred_out_list, eval_top_k=10):
             output, hits = get_gold_output_with_max_hits(gold_data['output'], pred_out)
             if hits >= max_hits:
                 best_gold_output, best_pred_output, max_hits = output, pred_out, hits
-                elem = {'qid': best_pred_output['qid'], 'question': best_pred_output['question'],
+                elem = {'qid': preds_out['qid'], 'question': preds_out['question'],
                         'gold_output': best_gold_output, 'pred_output': best_pred_output}
                 update_stats(stat, max_hits, elem)
     stat['skipped'] = len(data_map) - stat['total']
