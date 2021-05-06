@@ -222,7 +222,7 @@ if __name__ == '__main__':
     test_data_map = get_test_data_map(args.test_input_file)
     stat = generate_stats(test_data_map, pred_out, args.top_k)
     print('Statistics with representative examples are as follows')
-    print(json.dumps(json.loads(stat), indent=3))
+    print(json.dumps(stat, indent=3))
 
     with open(args.stat_out_file, 'w') as f:
         print('Writing detailed stats to ', args.stat_out_file)
