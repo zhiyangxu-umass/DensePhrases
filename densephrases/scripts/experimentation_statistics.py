@@ -171,6 +171,7 @@ def get_repr_stat(stat, show=1):
     org_stat = copy.deepcopy(stat)
 
     def get_repr_substat(stat):
+        org_stat = stat
         stat['no_prov']['examples'] = stat['no_prov']['examples'][:show]
         stat['title_miss']['examples'] = stat['title_miss']['examples'][:show]
         stat = stat['title_hit']
@@ -178,7 +179,7 @@ def get_repr_stat(stat, show=1):
         stat = stat['sec_hit']
         stat['para_miss']['examples'] = stat['para_miss']['examples'][:show]
         stat['para_hit']['examples'] = stat['para_hit']['examples'][:show]
-        return stat
+        return org_stat
 
     org_stat['ans_hit'] = get_repr_substat(org_stat['ans_hit'])
     org_stat['ans_miss'] = get_repr_substat(org_stat['ans_miss'])
