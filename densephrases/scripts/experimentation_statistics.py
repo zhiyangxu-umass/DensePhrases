@@ -30,7 +30,7 @@ def get_test_data_map(test_data_file):
                     for i, answer in enumerate(rec['answers'])]
             }
 
-        print(f"Data Map: {data[0]} => data_map[{data[0]['id']}]={data_map[data[0]['id']]}")
+        print(f"\n\nData Map: \n\n{data[0]} \n\n=> data_map[{data[0]['id']}]={data_map[data[0]['id']]}")
         return data_map
 
 
@@ -58,7 +58,7 @@ def get_pred_output(pred_out_file):
                     ]
                 }
             )
-        print(f"Prediction output: {first} => {output[0]}")
+        print(f"\n\nPrediction output: \n\n{first} => \n\n{output[0]}")
         return output
 
 
@@ -80,7 +80,7 @@ def get_gold_provenance_with_max_hits(gold_output, pred_output):
         if hits > max_hits:
             max_hits = hits
             best_prov = prov
-    print(f"get_gold_provenance_with_max_hits: Gold:{gold_output} Pred:{pred_output} => {best_prov} {max_hits}")
+    print(f"\n\nget_gold_provenance_with_max_hits: \n\nGold:{gold_output} \n\nPred:{pred_output} => {best_prov} {max_hits}")
     return best_prov, max_hits
 
 
@@ -108,7 +108,7 @@ def get_gold_output_with_max_hits(gold_output_list, pred_output):
     final_output = {'answer': final_ans}
     if final_prov is not None:
         final_output.update(final_prov)
-    print(f"get_gold_provenance_with_max_hits: Gold:{gold_output_list} Pred:{pred_output} => {final_output} {max_hits}")
+    print(f"\n\nget_gold_output_with_max_hits: \n\nGold:{gold_output_list} \n\nPred:{pred_output} => {final_output} {max_hits}")
     return final_output, max_hits
 
 
@@ -211,9 +211,9 @@ def generate_stats(data_map, pred_out_list, eval_top_k=10):
                 best_gold_output, best_pred_output, max_hits = output, pred_out, hits
                 elem = {'qid': preds_out['qid'], 'question': preds_out['question'],
                         'gold_output': best_gold_output, 'pred_output': best_pred_output}
-                print('Before stat:', stat)
+                print('\n\nBefore stat:', stat)
                 update_stats(stat, max_hits, elem)
-                print('After update', stat)
+                print('\n\nAfter update', stat)
     stat['skipped'] = len(data_map) - stat['total']
     return stat
 
