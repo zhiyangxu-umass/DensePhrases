@@ -18,7 +18,10 @@ def get_test_data_map(test_data_file):
                         'provenances': [
                             {
                                 'title': prov['title'].strip().lower(),
-                                'sec_title': prov['section_title'].strip().lower(),
+                                'sec_title': prov['section_title'].strip()
+                                                 .replace('Section::::', '')  # Remove Section
+                                                 .split(':')[0]  # Ignore subsections
+                                [:-1].lower(),  # Remove dot at end
                                 'para_id': int(prov['paragraph_id']),
                             }
                             for prov in rec['provenances'][i]]
