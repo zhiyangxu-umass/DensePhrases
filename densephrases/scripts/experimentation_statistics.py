@@ -84,8 +84,8 @@ def get_gold_provenance_with_max_hits(gold_output, pred_output):
                 hits += 1
                 if prov['para_id'] == pred_output['para_id']:
                     hits += 1
-                    # Only the first match is sufficient
-                    return prov, max_hits
+                    # Only the first match is sufficient, directly return
+                    return prov, hits
         if hits > max_hits:
             max_hits = hits
             best_prov = prov
