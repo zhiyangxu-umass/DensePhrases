@@ -103,7 +103,7 @@ def get_gold_output_with_max_hits(gold_output_list, pred_output):
             best_prov, hits = get_gold_provenance_with_max_hits(gold_output, pred_output)
             if not ans_hit:
                 # If this is first hit, this overrides all the previous outputs
-                final_ans, final_prov, max_hits = pred_output['answer'], best_prov, hits
+                final_ans, final_prov, max_hits = gold_output['answer'], best_prov, hits
                 ans_hit = True
                 continue
         else:
@@ -112,13 +112,13 @@ def get_gold_output_with_max_hits(gold_output_list, pred_output):
             best_prov, hits = get_gold_provenance_with_max_hits(gold_output, pred_output)
         # For all other cases, check if the max_hits is larger.
         if hits > max_hits:
-            final_ans, final_prov, max_hits = pred_output['answer'], best_prov, hits
+            final_ans, final_prov, max_hits = gold_output['answer'], best_prov, hits
         # If max hits received and ans is already matched, then stop scanning
         if ans_hit and max_hits == 3:
             break
         # There should be atleast one answer set. No need to set prov it happens when hit=max_hit=-1 and ans=None
         if final_ans is None:
-            final_ans = pred_output['answer']
+            final_ans = gold_output['answer']
     final_output = {'answer': final_ans}
     # If none of the answers had provenance, then ignore the metadata.
     if final_prov is not None:
@@ -225,11 +225,11 @@ def generate_stats(data_map, pred_out_list, eval_top_k=10):
             output, hits = get_gold_output_with_max_hits(gold_data['output'], pred_out)
             if hits >= max_hits:
                 best_gold_output, best_pred_output, max_hits = output, pred_out, hits
-                elem = {'qid': preds_out['qid'], 'question': preds_out['question'],
-                        'gold_output': best_gold_output, 'pred_output': best_pred_output}
-                print('\n\nBefore stat:', stat)
-                update_stats(stat, max_hits, elem)
-                print('\n\nAfter update', stat)
+        elem = {'qid': preds_out['qid'], 'question': preds_out['question'],
+                'gold_output': best_gold_output, 'pred_output': best_pred_output}
+        print('\n\nBefore stat:', stat)
+        update_stats(stat, max_hits, elem)
+        print('\n\nAfter update', stat)
     stat['skipped'] = len(data_map) - stat['total']
     return stat
 
