@@ -1,2 +1,5 @@
 # run eval on nq
 make eval-od MODEL_NAME=dph-nqsqd-pb2_pq96-nq-10 DUMP_DIR=$DPH_SAVE_DIR/dph-nqsqd-pb2_dev_wiki/dump/
+
+# To find statistics
+make get-diffqa-stats TITLE_W=0.1 SHOW_EXP=0 | less

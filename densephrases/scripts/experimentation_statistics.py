@@ -180,7 +180,7 @@ def get_repr_stat(stat, show=1):
         stat['para_miss']['examples'] = stat['para_miss']['examples'][:show]
         stat['para_hit']['examples'] = stat['para_hit']['examples'][:show]
         return org_stat
-
+    org_stat['em'] = org_stat['ans_hit']['total'] / org_stat['total'] * 100.0
     org_stat['ans_hit'] = get_repr_substat(org_stat['ans_hit'])
     org_stat['ans_miss'] = get_repr_substat(org_stat['ans_miss'])
     return org_stat

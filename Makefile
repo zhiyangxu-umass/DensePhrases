@@ -121,7 +121,7 @@ eval-sod: model-name
 		--index_dir start/256_flat_SQ4 \
 		--query_encoder_path $(DPH_SAVE_DIR)/$(MODEL_NAME) \
 		--test_path $(DPH_DATA_DIR)/$(SOD_DATA) \
-		--pred_output_file ./prediction_eval_dump.jsonl \
+		--pred_output_file /mnt/nfs/scratch1/hmalara/DensePhrase-main-github/DensePhrases/prediction_eval_dump.jsonl \
 		$(OPTIONS)
 
 # Create IVFPQ index for Semi-OD
@@ -141,7 +141,7 @@ eval-sod-pq: model-name
 		--dump_dir $(DPH_SAVE_DIR)/$(MODEL_NAME)/dump \
 		--index_dir start/256_flat_PQ96_8 \
 		--query_encoder_path $(DPH_SAVE_DIR)/$(MODEL_NAME) \
-		--pred_output_file ./prediction_eval_dump.jsonl \
+		--pred_output_file /mnt/nfs/scratch1/hmalara/DensePhrase-main-github/DensePhrases/prediction_eval_dump.jsonl \
 		--test_path $(DPH_DATA_DIR)/$(SOD_DATA) \
 		$(OPTIONS)
 
@@ -263,7 +263,7 @@ eval-dump: model-name dump-dir nq-single-data
 		--dump_dir $(DUMP_DIR) \
 		--index_dir start/1048576_flat_SQ4 \
 		--query_encoder_path $(DPH_SAVE_DIR)/$(MODEL_NAME) \
-		--pred_output_file ./prediction_eval_dump.jsonl \
+		--pred_output_file /mnt/nfs/scratch1/hmalara/DensePhrase-main-github/DensePhrases/prediction_eval_dump.jsonl \
 		--test_path $(DPH_DATA_DIR)/$(SOD_DATA) \
 		$(OPTIONS)
 
@@ -327,7 +327,7 @@ eval-od-rerank: dump-dir model-name nq-open-data
 		--use_phrase_index_cache \
 		--phrase_index_cache_name nq_test_preprocessed_pq_cache.json \
 		--dump_dir $(DUMP_DIR) \
-		--pred_output_file pred_file_$(TITLE_W).jsonl \
+		--pred_output_file /mnt/nfs/scratch1/hmalara/DensePhrase_Harsh_Repo/DensePhrases/outputs/dph-nqsqd-pb2_pq96-nq-10/pred_file_$(TITLE_W).jsonl \
 		--phrase_dump_dir /mnt/nfs/work1/696ds-s21/hmalara/phrase \
 		--index_dir start-pq/1048576_flat_PQ96_8 \
 		--query_encoder_path $(DPH_SAVE_DIR)/$(MODEL_NAME) \
@@ -346,7 +346,7 @@ eval-od: dump-dir model-name nq-open-data
 		--cuda \
 		--eval_batch_size 1 \
 		--phrase_index_cache_name nq_test_preprocessed_cache.json \
-		--pred_output_file ./pred_file_original.jsonl \
+		--pred_output_file /mnt/nfs/scratch1/hmalara/DensePhrase-main-github/DensePhrases/pred_file_original.jsonl \
 		--dump_dir $(DUMP_DIR) \
 		--phrase_dump_dir /mnt/nfs/work1/696ds-s21/hmalara/phrase \
 		--index_dir start-pq/1048576_flat_PQ96_8 \
@@ -554,7 +554,7 @@ sample-nq-reader-doc-wiki-dev: data-config
 get-diffqa-stats: nq-open-data
 	python -m densephrases.scripts.experimentation_statistics \
 		--test_input_file $(DPH_DATA_DIR)/$(TEST_DATA) \
-		--pred_file ./pred_file_$(TITLE_W).jsonl \
-		--stat_out_file ./stat_out_$(TITLE_W).json \
+		--pred_file /mnt/nfs/scratch1/hmalara/DensePhrase-main-github/DensePhrases/pred_file_$(TITLE_W).jsonl \
+		--stat_out_file /mnt/nfs/scratch1/hmalara/DensePhrase-main-github/DensePhrases/stat_out_$(TITLE_W).json \
 		--eval_top_k 10 \
 		--show_top_k $(SHOW_EXP)
