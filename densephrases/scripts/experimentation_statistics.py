@@ -206,14 +206,10 @@ def generate_stats(data_map, pred_out_list, eval_top_k=10):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--test_input_file', type=str,
-                        default=os.path.join(os.environ['DPH_DATA_DIR'],
-                                             'open-qa/nq-open/nq_test_preprocessed.json'))
-    parser.add_argument('--pred_file', type=str,
-                        default='./pred_file_0.1.jsonl')
+    parser.add_argument('--test_input_file', type=str)
+    parser.add_argument('--pred_file', type=str)
     parser.add_argument('--top_k', default=10, type=int, help="Top k results for evaluation.")
-    parser.add_argument('--stat_out_file', type=str,
-                        default='./stat_out_file_0.1.json')
+    parser.add_argument('--stat_out_file', type=str)
     args = parser.parse_args()
     assert os.path.exists(args.test_input_file)
     assert os.path.exists(args.pred_file)
