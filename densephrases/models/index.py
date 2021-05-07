@@ -475,7 +475,7 @@ class MIPS(object):
                max_answer_length=10):
         # Fetch from cache if set
         if self.read_cache_results and q_texts is not None:
-            return [self.result_cache[q_text] for q_text in q_texts]
+            return [self.result_cache.get(q_text, self.result_cache[q_text.lower()]) for q_text in q_texts]
 
         # MIPS on start/end
         start_time = time()
