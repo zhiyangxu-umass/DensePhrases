@@ -702,6 +702,136 @@ def get_phrase_vecs(mips, questions, answers, outs, args):
     end_vecs = np.reshape(end_vecs, (batch_size, args.top_k * 2, -1))
     return start_vecs, end_vecs, targets
 
+# This is the function we will mainly work on
+def train_title_query_encoder(args):
+    device = 'cuda' if args.cuda else 'cpu'
+    logger.info("Loading pretrained query encoder")
+    pretrained_encoder, tokenizer = load_query_encoder(device, args)
+
+    # Train another
+    logger.info("Loading title query encoder: this is the initial state of title query encoder")
+    target_encoder, _ = load_query_encoder(device, args)
+
+    # Optimizer setting
+    def is_train_param(name):
+        if name.endswith("bert_start.embeddings.word_embeddings.weight") or \
+                name.endswith("bert_end.embeddings.word_embeddings.weight") or \
+                name.endswith("bert_q_start.embeddings.word_embeddings.weight") or \
+                name.endswith("bert_q_end.embeddings.word_embeddings.weight"):
+            logger.info(f'freezing {name}')
+            return False
+        return True
+
+    no_decay = ["bias", "LayerNorm.weight"]
+    optimizer_grouped_parameters = [{
+        "params": [
+            p for n, p in target_encoder.named_parameters() \
+            if not any(nd in n for nd in no_decay) and is_train_param(n)
+        ],
+        "weight_decay": 0.01,
+    }, {
+        "params": [
+            p for n, p in target_encoder.named_parameters() \
+            if any(nd in n for nd in no_decay) and is_train_param(n)
+        ],
+        "weight_decay": 0.0
+    },
+    ]
+    optimizer = AdamW(optimizer_grouped_parameters, lr=args.learning_rate, eps=args.adam_epsilon)
+    step_per_epoch = math.ceil(len(load_qa_pairs(args.train_path, args)[1]) / args.per_gpu_train_batch_size)
+    t_total = int(step_per_epoch // args.gradient_accumulation_steps * args.num_train_epochs)
+    logger.info(f"Train for {t_total} iterations")
+    scheduler = get_linear_schedule_with_warmup(
+        optimizer, num_warmup_steps=args.warmup_steps, num_training_steps=t_total
+    )
+    eval_steps = math.ceil(len(load_qa_pairs(args.dev_path, args)[1]) / args.eval_batch_size)
+    logger.info(f"Test takes {eval_steps} iterations")
+
+    # Train arguments
+    args.per_gpu_train_batch_size = int(args.per_gpu_train_batch_size / args.gradient_accumulation_steps)
+    best_acc = -1000.0
+    for ep_idx in range(int(args.num_train_epochs)):
+
+        # Training
+        total_loss = 0.0
+        total_accs = []
+        total_accs_k = []
+
+        # reload training dataset in every epoch
+        # this function load the text of the whole dataset 
+        _, questions, answers = load_qa_pairs(args.train_path, args, shuffle=True)
+
+        # TODO: write a function which takes questions and answers, and returns phrase index which we stored before 
+        pbar = 
+
+        for step_idx, (questions, answers, outs) in enumerate(pbar):
+            train_dataloader, _, _ = get_question_dataloader(
+                questions, tokenizer, args.max_query_length, batch_size=args.per_gpu_train_batch_size
+            )
+            svs, evs, tgts = get_phrase_vecs(mips, questions, answers, outs, args)
+
+            target_encoder.train()
+            svs_t = torch.Tensor(svs).to(device) # start index 
+            evs_t = torch.Tensor(evs).to(device) # end index
+            tgts_t = [torch.Tensor([tgt_ for tgt_ in tgt if tgt_ is not None]).to(device) for tgt in tgts]
+
+            # Train query encoder
+            assert len(train_dataloader) == 1
+            for batch in train_dataloader:
+                batch = tuple(t.to(device) for t in batch)
+                # TODO: integrate rerank to train_query
+                loss, accs = target_encoder.train_query(
+                    input_ids_=batch[0], attention_mask_=batch[1], token_type_ids_=batch[2],
+                    start_vecs=svs_t,
+                    end_vecs=evs_t,
+                    targets=tgts_t
+                )
+
+                # Optimize, get acc and report
+                if loss is not None:
+                    if args.gradient_accumulation_steps > 1:
+                        loss = loss / args.gradient_accumulation_steps
+                    if args.fp16:
+                        with amp.scale_loss(loss, optimizer) as scaled_loss:
+                            scaled_loss.backward()
+                    else:
+                        loss.backward()
+
+                    total_loss += loss.mean().item()
+                    if args.fp16:
+                        torch.nn.utils.clip_grad_norm_(amp.master_params(optimizer), args.max_grad_norm)
+                    else:
+                        torch.nn.utils.clip_grad_norm_(target_encoder.parameters(), args.max_grad_norm)
+
+                    optimizer.step()
+                    scheduler.step()  # Update learning rate schedule
+                    target_encoder.zero_grad()
+
+                    pbar.set_description(
+                        f"Ep {ep_idx + 1} Tr loss: {loss.mean().item():.2f}, acc: {sum(accs) / len(accs):.3f}"
+                    )
+
+                if accs is not None:
+                    total_accs += accs
+                    total_accs_k += [len(tgt) > 0 for tgt in tgts_t]
+                else:
+                    total_accs += [0.0] * len(tgts_t)
+                    total_accs_k += [0.0] * len(tgts_t)
+
+        step_idx += 1
+        logger.info(
+            f"Avg train loss ({step_idx} iterations): {total_loss / step_idx:.2f} | train " +
+            f"acc@1: {sum(total_accs) / len(total_accs):.3f} | acc@{args.top_k}: {sum(total_accs_k) / len(total_accs_k):.3f}"
+        )
+
+        # TODO: Evaluation
+
+        # TODO: Save best model
+        
+    print()
+    logger.info(f"Best model has acc {best_acc:.3f} saved as {save_path}")
+
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -831,6 +961,9 @@ if __name__ == '__main__':
 
     elif args.run_mode == 'eval_inmemory':
         eval_inmemory(args)
+
+    elif args.run_mode == 'train_title_query':
+        train_title_query_encoder(args) # no need to load mips
 
     else:
         raise NotImplementedError
