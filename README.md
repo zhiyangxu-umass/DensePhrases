@@ -14,6 +14,9 @@
 
 # Wikidump from Kilt
 /mnt/nfs/scratch1/hmalara/DensePhrase_Harsh_Repo/DensePhrases/dph-data/wikidump-kilt
+
+# Title embeddings/text/wikiID2idx
+/mnt/nfs/scratch1/hmalara/DensePhrase_Harsh_Repo/DensePhrases/dph-data/kilt_ks_wikidump/extra_emb
 ```
 # DensePhrases
 
