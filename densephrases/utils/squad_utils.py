@@ -1434,6 +1434,113 @@ def get_question_dataloader(questions, tokenizer, max_query_length=64, batch_siz
 
     return eval_dataloader, examples, features
 
+# create a new dataloader for title
+def get_title_dataloader(titles, questions, tokenizer, max_query_length=64, batch_size=64):
+    squad_convert_example_to_features_init(tokenizer)
+    all_input_ids_list = []
+    all_attention_masks_list = []
+    all_token_type_ids_list = []
+    all_features = []
+    all_examples = []
+    for t_idx, title in enumerate(titles):
+        examples = [SquadExample(qas_id=t_idx, question_text=t) for t in enumerate(title)]
+        all_examples.append(examples)
+        features = [squad_convert_example_to_features(
+            example,
+            max_seq_length=max_seq_length,
+            doc_stride=doc_stride,
+            max_query_length=max_query_length,
+            is_training=is_training,
+            context_only=context_only,
+            question_only=question_only,
+            append_title=append_title,
+            skip_no_answer=skip_no_answer,
+        ) for example in examples]
+        new_features = []
+        unique_id = 1000000000
+        example_index = 0
+        for example_features in tqdm(
+            features, total=len(features), desc="add example index and unique id", disable=not tqdm_enabled
+        ):
+            if not example_features:
+                continue
+            for example_feature in example_features:
+                example_feature.example_index = example_index
+                example_feature.unique_id = unique_id
+                new_features.append(example_feature)
+                unique_id += 1
+            example_index += 1
+        features = new_features
+        del new_features
+
+        # all_cls_index = torch.tensor([f.cls_index for f in features], dtype=torch.long)
+        # all_p_mask = torch.tensor([f.p_mask for f in features], dtype=torch.float)
+        # all_is_impossible = torch.tensor([f.is_impossible for f in features], dtype=torch.float)
+
+        all_input_ids_ = torch.tensor([f.input_ids_ for f in features], dtype=torch.long)
+        all_attention_masks_ = torch.tensor([f.attention_mask_ for f in features], dtype=torch.long)
+        all_token_type_ids_ = torch.tensor([f.token_type_ids_ for f in features], dtype=torch.long)
+
+        all_input_ids_list.append(all_input_ids_)
+        all_attention_masks_list.append(all_attention_masks_)
+        all_token_type_ids_list.append(all_token_type_ids_)
+    
+    title_input_ids_ = torch.stack(all_input_ids_list, dim=0)  # batch_size, 100, seq_length
+    title_attention_masks_ = torch.stack(all_attention_masks_list, dim=0)
+    title_token_type_ids_ = torch.stack(all_token_type_ids_list, dim=0)
+
+    all_feature_index_ = torch.arange(title_input_ids_.size(0), dtype=torch.long)
+
+    # query dataloader
+    examples = [SquadExample(qas_id=t_idx, question_text=t) for t in enumerate(title)]
+    features = [squad_convert_example_to_features(
+        example,
+        max_seq_length=max_seq_length,
+        doc_stride=doc_stride,
+        max_query_length=max_query_length,
+        is_training=is_training,
+        context_only=context_only,
+        question_only=question_only,
+        append_title=append_title,
+        skip_no_answer=skip_no_answer,
+    ) for example in examples]
+    new_features = []
+    unique_id = 1000000000
+    example_index = 0
+    for example_features in tqdm(
+        features, total=len(features), desc="add example index and unique id", disable=not tqdm_enabled
+    ):
+        if not example_features:
+            continue
+        for example_feature in example_features:
+            example_feature.example_index = example_index
+            example_feature.unique_id = unique_id
+            new_features.append(example_feature)
+            unique_id += 1
+        example_index += 1
+    features = new_features
+    del new_features
+
+    # all_cls_index = torch.tensor([f.cls_index for f in features], dtype=torch.long)
+    # all_p_mask = torch.tensor([f.p_mask for f in features], dtype=torch.float)
+    # all_is_impossible = torch.tensor([f.is_impossible for f in features], dtype=torch.float)
+
+    question_input_ids_ = torch.tensor([f.input_ids_ for f in features], dtype=torch.long)
+    question_attention_masks_ = torch.tensor([f.attention_mask_ for f in features], dtype=torch.long)
+    question_token_type_ids_ = torch.tensor([f.token_type_ids_ for f in features], dtype=torch.long)
+
+    
+    dataset = TensorDataset(
+        title_input_ids_, title_attention_masks_, title_token_type_ids_, question_input_ids_, question_attention_masks_, question_token_type_ids_, all_feature_index_
+    )
+
+    eval_sampler = SequentialSampler(dataset)
+    eval_dataloader = DataLoader(dataset, sampler=eval_sampler, batch_size=batch_size)
+
+    return eval_dataloader
+
+
+
 
 def get_cq_dataloader(contexts, questions, tokenizer, max_query_length=64, batch_size=64):
     examples = [

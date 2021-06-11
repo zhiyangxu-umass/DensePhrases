@@ -333,3 +333,49 @@ class DensePhrases(PreTrainedModel):
         _, rerank_idx = torch.sort(logits, -1, descending=True)
         top1_acc = [rerank[0] in target for rerank, target in zip(rerank_idx, targets)]
         return log_probs, top1_acc
+
+    def train_title(
+        self,
+        t_ids_=None, t_attention_mask_=None, t_token_type_ids_=None,
+        query_start=None, query_end=None,
+        targets=None,
+    ):
+        
+        # query_start: B,1,H
+        # Compute query embedding
+        B, K, S = t_ids_.shape
+        t_ids_ = t_ids_.view(-1,S)
+        t_attention_mask_ = t_attention_mask_.view(-1,S)
+        t_token_type_ids_ = t_token_type_ids_.view(-1,S)
+        title_start, title_end = self.embed_query(t_ids_, t_attention_mask_, t_token_type_ids_)
+        title_start = title_start.view(B,K,-1)
+        title_end = title_end.view(B,K,-1) #B,K,H
+
+        # Start/end dense logits
+        start_logits = title_start.matmul(query_start.transpose(1, 2)).squeeze(-1)
+        end_logits = title_end.matmul(query_end.transpose(1, 2)).squeeze(-1)
+        logits = start_logits + end_logits #B,K
+
+        # MML over targets
+        # MIN_PROB = 1e-7
+        # log_probs = [
+        #     -torch.log(softmax(lg, -1)[tg.long()].sum().clamp(MIN_PROB, 1)) for lg, tg in zip(logits, targets)
+        #     if len(tg) > 0
+        # ]
+        # log_probs = sum(log_probs)/len(log_probs)
+
+        # # Start/End only loss
+        # start_loss = [
+        #     -torch.log(softmax(lg, -1)[tg.long()].sum().clamp(MIN_PROB, 1)) for lg, tg in zip(start_logits, targets)
+        #     if len(tg) > 0
+        # ]
+        # end_loss = [
+        #     -torch.log(softmax(lg, -1)[tg.long()].sum().clamp(MIN_PROB, 1)) for lg, tg in zip(end_logits, targets)
+        #     if len(tg) > 0
+        # ]
+        # log_probs = log_probs + sum(start_loss)/len(start_loss) + sum(end_loss)/len(end_loss)
+        loss = CrossEntropyLoss(logits, targets)
+
+        _, rerank_idx = torch.sort(logits, -1, descending=True)
+        top1_acc = [rerank[0] == 0 for rerank in rerank_idx]
+        return loss, top1_acc
