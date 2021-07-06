@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+from torch.autograd import Variable
 import math
 import random
 import copy
@@ -340,13 +341,18 @@ class DensePhrases(PreTrainedModel):
         query_start=None, query_end=None,
         targets=None,
     ):
-        
         # query_start: B,1,H
         # Compute query embedding
         B, K, S = t_ids_.shape
         t_ids_ = t_ids_.view(-1,S)
         t_attention_mask_ = t_attention_mask_.view(-1,S)
         t_token_type_ids_ = t_token_type_ids_.view(-1,S)
+        # print('t_ids_',t_ids_.shape)
+        # print('t_attention_mask_',t_attention_mask_.shape)
+        # print('t_token_type_ids_',t_token_type_ids_.shape)
+        # print('query_start',query_start.shape)
+        # print('query_end',query_end.shape)
+        # print('targets',len(targets))
         title_start, title_end = self.embed_query(t_ids_, t_attention_mask_, t_token_type_ids_)
         title_start = title_start.view(B,K,-1)
         title_end = title_end.view(B,K,-1) #B,K,H
@@ -374,8 +380,33 @@ class DensePhrases(PreTrainedModel):
         #     if len(tg) > 0
         # ]
         # log_probs = log_probs + sum(start_loss)/len(start_loss) + sum(end_loss)/len(end_loss)
-        loss = CrossEntropyLoss(logits, targets)
+        # loss = CrossEntropyLoss(logits, targets)
+
+        # _, rerank_idx = torch.sort(logits, -1, descending=True)
+        # top1_acc = [rerank[0] == 0 for rerank in rerank_idx]
+        # return loss, top1_acc
+        MIN_PROB = 1e-7
+        log_probs = [
+            -torch.log(softmax(lg, -1)[tg.long()].sum().clamp(MIN_PROB, 1)) for lg, tg in zip(logits, targets)
+            if len(tg) > 0
+        ]
+        if len(log_probs) == 0:
+            return  None, None
+        log_probs = sum(log_probs)/len(log_probs)
+
+        # Start/End only loss
+        start_loss = [
+            -torch.log(softmax(lg, -1)[tg.long()].sum().clamp(MIN_PROB, 1)) for lg, tg in zip(start_logits, targets)
+            if len(tg) > 0
+        ]
+        end_loss = [
+            -torch.log(softmax(lg, -1)[tg.long()].sum().clamp(MIN_PROB, 1)) for lg, tg in zip(end_logits, targets)
+            if len(tg) > 0
+        ]
+        log_probs = log_probs + sum(start_loss)/len(start_loss) + sum(end_loss)/len(end_loss)
 
         _, rerank_idx = torch.sort(logits, -1, descending=True)
-        top1_acc = [rerank[0] == 0 for rerank in rerank_idx]
-        return loss, top1_acc
+        # print(rerank_idx)
+        # print(targets)
+        top1_acc = [rerank[0] in target for rerank, target in zip(rerank_idx, targets)]
+        return log_probs, top1_acc

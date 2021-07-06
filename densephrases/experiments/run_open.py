@@ -27,7 +27,7 @@ from densephrases.utils.eval_utils import f1_score, exact_match_score, drqa_exac
 from densephrases.utils.kilt.eval import evaluate as kilt_evaluate
 from densephrases.utils.kilt.kilt_utils import store_data as kilt_store_data
 from densephrases.utils.single_utils import backward_compat
-from densephrases.utils.squad_utils import get_question_dataloader, TrueCaser
+from densephrases.utils.squad_utils import get_question_dataloader, TrueCaser, get_title_dataloader
 
 logging.basicConfig(format='%(asctime)s - %(levelname)s - %(name)s -   %(message)s', datefmt='%m/%d/%Y %H:%M:%S',
                     level=logging.INFO)
@@ -147,6 +147,7 @@ def load_qa_pairs(data_path, args, draft_num_examples=1000, shuffle=False):
     q_ids = []
     questions = []
     answers = []
+    meta_info = []
     data = json.load(open(data_path))['data']
     for item in data:
         q_id = item['id']
@@ -157,6 +158,7 @@ def load_qa_pairs(data_path, args, draft_num_examples=1000, shuffle=False):
         q_ids.append(q_id)
         questions.append(question)
         answers.append(answer)
+        meta_info.append(item)
     questions = [query[:-1] if query.endswith('?') else query for query in questions]
 
     if args.truecase:
@@ -177,19 +179,19 @@ def load_qa_pairs(data_path, args, draft_num_examples=1000, shuffle=False):
         answers = np.array(answers)[:draft_num_examples].tolist()
 
     if shuffle:
-        qa_pairs = list(zip(q_ids, questions, answers))
+        qa_pairs = list(zip(q_ids, questions, answers, meta_info))
         random.shuffle(qa_pairs)
-        q_ids, questions, answers = zip(*qa_pairs)
+        q_ids, questions, answers, meta_info = zip(*qa_pairs)
         logger.info(f'Shuffling QA pairs')
 
     logger.info(f'Loading {len(questions)} questions from {data_path}')
     logger.info(f'Sample Q ({q_ids[0]}): {questions[0]}, A: {answers[0]}')
-    return q_ids, questions, answers
+    return q_ids, questions, answers, meta_info
 
 
 def eval_inmemory(args, mips=None, query_encoder=None, tokenizer=None):
     # Load dataset and encode queries
-    qids, questions, answers = load_qa_pairs(args.test_path, args)
+    qids, questions, answers, _ = load_qa_pairs(args.test_path, args)
     if query_encoder is None:
         print(f'Query encoder will be loaded from {args.query_encoder_path}')
         device = 'cuda' if args.cuda else 'cpu'
@@ -630,29 +632,77 @@ def train_query_encoder(args, mips=None):
     print()
     logger.info(f"Best model has acc {best_acc:.3f} saved as {save_path}")
 
-## Add train title encoder experiment
+#-------------------  Add train title encoder experiment ------------------------#
 
-def load_title(title_path):
-    title_text = json.load(os.path.join(title_path,'title_text.json'))
-    wiki2idx = json.load(os.path.join(title_path,'wiki2idx.json'))
-    return title_text, wiki2idx
+def load_title(device,args):
+    title_emb = np.load(os.path.join(args.extra_embed_path,'title_emb.npy'))
+    title_emb = torch.from_numpy(title_emb).float().to(device)
+    print('length of title emb',len(title_emb))
+    title_text = json.load(open(os.path.join(args.extra_embed_path,'title_text.json'),'r'))
+    print('length of title text',len(title_text))
+    wiki2idx = json.load(open(os.path.join(args.extra_embed_path,'wiki2idx.json'),'r'))
+    print('length of wiki2idx',len(wiki2idx))
+    return title_emb, title_text, wiki2idx
 
-def get_title_text(query_vec, answer, title_emb, title_text, wiki2idx):
-    title_text = []
-    for _vec, ans in tqdm(zip(query_vec, answer)):
+def get_title_text(query_vec, answer, title_emb, title_text, wiki2idx, questions):
+    out = []
+    targets = []
+    filtered_questions = []
+    num_skip = 0
+    for _vec, ans, que in tqdm(zip(query_vec, answer, questions)):
+        # print(_vec.shape,title_emb.shape)
+        correct_idx = []
+        one_title_text = []
+        target = []
+        counter = 0
+        for provenances in ans['provenances']:
+            if len(provenances)>0:
+                if provenances[0]['wikipedia_id'] in wiki2idx:
+                    _idx = int(wiki2idx[provenances[0]['wikipedia_id']])
+                else:
+                    continue
+                if not _idx in correct_idx:
+                    correct_idx.append(_idx)
+                    one_title_text.append(title_text[_idx])
+                    target.append(counter)
+                    counter+=1
+        if not len(correct_idx) > 0:
+            num_skip+=1
+            continue
+
+        targets.append(torch.Tensor(target))
+        filtered_questions.append(que)
+
+
+
+                
+        # if len(ans['provenances']) > 0 and len(ans['provenances'][0]) > 0:
+        #     correct_idx = int(wiki2idx[ans['provenances'][0][0]['wikipedia_id']])
+        # else:
+        #     print('no meta info: ',ans)
+        # print(len(title_text),correct_idx)
+        # temp = [title_text[correct_idx]]
+        #calculate scores
         scores = torch.matmul(_vec, title_emb.transpose(0,1)) # num_titles
+        # print(scores.shape)
         # get topk
-        knn = scores.topk(99, largest=True)
+        knn = scores.topk(100, largest=True)
         indices = knn.indices # questions, 99 top titles
         indices = indices.tolist()
-        correct_idx = wiki2idx[answer[0]['provenances']['wikipedia_id']]
-        temp = [title_text[correct_idx]]
+        # print(ans)
+        # print(indices)
         for _idx in indices:
-            while _idx == correct_idx:
-                _idx = random.randint(0,title_text.shape[0])
-            temp.append(title_text[_idx])
-        title_text.append(temp)
-    return title_text #correct title always have idx 0
+            while _idx in correct_idx:
+                _idx = random.randint(0,len(title_text)-1)
+            one_title_text.append(title_text[_idx])
+            if len(one_title_text) >=32:
+                # print(one_title_text)
+                break
+        out.append(one_title_text)
+    
+    logger.info("The number of skipped example %d",num_skip)
+
+    return out, targets, filtered_questions #correct title always have idx 0
 
 
 def train_title_encoder(args, mips=None):
@@ -666,20 +716,26 @@ def train_title_encoder(args, mips=None):
     title_encoder, _ = load_query_encoder(device, args)
 
     #load title text
-    title_emb, title_text, wiki2idx = load_title(args.title_path)
+    logger.info("Loading titles")
+    title_emb, title_text, wiki2idx = load_title(device,args)
 
     #load qa pairs
-    qids, questions, answers = load_qa_pairs(args.test_path, args)
+    logger.info("Loading questions")
+    qids, questions, answers, meta_info = load_qa_pairs(args.test_path, args)
 
     #encode all querys
     query_vec = embed_all_query(questions, args, query_encoder, tokenizer)
+    query_vec = torch.from_numpy(query_vec).float().to(device)
+    # print(query_vec.shape)
 
     #get title text
-    title_text = get_title_text(query_vec, answer, title_emb, title_text, wiki2idx)
+    logger.info("Get title text")
+    title_text, targets, questions = get_title_text(query_vec, meta_info, title_emb, title_text, wiki2idx, questions)
+    # id2target = torch.arange(len(targets))
 
     #get dataloader
-    train_dataloader, _, _ = get_title_dataloader(
-                title_text, tokenizer, args.max_query_length, batch_size=args.per_gpu_train_batch_size
+    train_dataloader = get_title_dataloader(
+                title_text, questions, tokenizer, args.max_query_length, batch_size=args.per_gpu_train_batch_size
             )
 
     # Optimizer setting
@@ -695,26 +751,26 @@ def train_title_encoder(args, mips=None):
     no_decay = ["bias", "LayerNorm.weight"]
     optimizer_grouped_parameters = [{
         "params": [
-            p for n, p in target_encoder.named_parameters() \
+            p for n, p in title_encoder.named_parameters() \
             if not any(nd in n for nd in no_decay) and is_train_param(n)
         ],
         "weight_decay": 0.01,
     }, {
         "params": [
-            p for n, p in target_encoder.named_parameters() \
+            p for n, p in title_encoder.named_parameters() \
             if any(nd in n for nd in no_decay) and is_train_param(n)
         ],
         "weight_decay": 0.0
     },
     ]
     optimizer = AdamW(optimizer_grouped_parameters, lr=args.learning_rate, eps=args.adam_epsilon)
-    step_per_epoch = math.ceil(len(load_qa_pairs(args.train_path, args)[1]) / args.per_gpu_train_batch_size)
+    step_per_epoch = math.ceil(len(questions) / args.per_gpu_train_batch_size)
     t_total = int(step_per_epoch // args.gradient_accumulation_steps * args.num_train_epochs)
     logger.info(f"Train for {t_total} iterations")
     scheduler = get_linear_schedule_with_warmup(
         optimizer, num_warmup_steps=args.warmup_steps, num_training_steps=t_total
     )
-    eval_steps = math.ceil(len(load_qa_pairs(args.dev_path, args)[1]) / args.eval_batch_size)
+    eval_steps = math.ceil(len(questions) / args.eval_batch_size)
     logger.info(f"Test takes {eval_steps} iterations")
 
     # Train arguments
@@ -727,20 +783,23 @@ def train_title_encoder(args, mips=None):
         total_accs = []
         total_accs_k = []
 
-        target_encoder.train()
+        title_encoder.train()
         query_encoder.eval()
 
         # Train query encoder
-        assert len(train_dataloader) == 1
-        for batch in train_dataloader:
+        # assert len(train_dataloader) == 1
+        for step_idx, batch in enumerate(train_dataloader):
             batch = tuple(t.to(device) for t in batch)
             with torch.no_grad():
                 query_start, query_end = query_encoder.embed_query(batch[3],batch[4],batch[5])
-            targets = torch.full(batch[0].shape[0], 0, dtyp=torch.long, device=device)
-            loss, accs = target_encoder.train_title(
+            _id2target = batch[6]
+            tgts_t=[]
+            for target_idx in _id2target:
+                tgts_t.append(targets[target_idx].to(device))
+            loss, accs = title_encoder.train_title(
                 t_ids_=batch[0], t_attention_mask_=batch[1], t_token_type_ids_=batch[2],
                 query_start=query_start, query_end=query_end,
-                targets=targets
+                targets=tgts_t
             )
 
             # Optimize, get acc and report
@@ -757,13 +816,13 @@ def train_title_encoder(args, mips=None):
                 if args.fp16:
                     torch.nn.utils.clip_grad_norm_(amp.master_params(optimizer), args.max_grad_norm)
                 else:
-                    torch.nn.utils.clip_grad_norm_(target_encoder.parameters(), args.max_grad_norm)
+                    torch.nn.utils.clip_grad_norm_(title_encoder.parameters(), args.max_grad_norm)
 
                 optimizer.step()
                 scheduler.step()  # Update learning rate schedule
-                target_encoder.zero_grad()
+                title_encoder.zero_grad()
 
-                pbar.set_description(
+                logger.info(
                     f"Ep {ep_idx + 1} Tr loss: {loss.mean().item():.2f}, acc: {sum(accs) / len(accs):.3f}"
                 )
 
@@ -779,35 +838,36 @@ def train_title_encoder(args, mips=None):
             f"Avg train loss ({step_idx} iterations): {total_loss / step_idx:.2f} | train " +
             f"acc@1: {sum(total_accs) / len(total_accs):.3f} | acc@{args.top_k}: {sum(total_accs_k) / len(total_accs_k):.3f}"
         )
+        curr_acc = sum(total_accs_k) / len(total_accs_k)
 
         # Evaluation
-        logger.setLevel(logging.WARNING)
-        new_args = copy.deepcopy(args)
-        new_args.wandb = False
-        new_args.top_k = 10
-        new_args.test_path = args.dev_path
-        dev_em = eval_inmemory(new_args, mips, query_encoder, tokenizer)
-        logger.setLevel(logging.INFO)
-        logger.info(f"Develoment set acc@1: {dev_em:.3f}")
+        # logger.setLevel(logging.WARNING)
+        # new_args = copy.deepcopy(args)
+        # new_args.wandb = False
+        # new_args.top_k = 10
+        # new_args.test_path = args.dev_path
+        # dev_em = eval_inmemory(new_args, mips, query_encoder, tokenizer)
+        # logger.setLevel(logging.INFO)
+        # logger.info(f"Develoment set acc@1: {dev_em:.3f}")
 
-        # Save best model
-        if dev_em > best_acc:
-            best_acc = dev_em
+        # # Save best model
+        if curr_acc > best_acc:
+            best_acc = curr_acc
             save_path = args.output_dir
             if not os.path.exists(save_path):
                 os.makedirs(save_path)
-            target_encoder.save_pretrained(save_path)
+            title_encoder.save_pretrained(save_path)
             logger.info(f"Saved best model with acc {best_acc:.3f} into {save_path}")
 
-        if (ep_idx + 1) % 1 == 0:
-            logger.info('Updating pretrained encoder')
-            pretrained_encoder = target_encoder
-            train_cache = []
-            eval_cache = []
+        # if (ep_idx + 1) % 1 == 0:
+        #     logger.info('Updating pretrained encoder')
+        #     pretrained_encoder = title_encoder
+        #     train_cache = []
+        #     eval_cache = []
 
     logger.info(f"Best model has acc {best_acc:.3f} saved as {save_path}")
 
-#############################################################################################
+#------------------------------------------------------------------------------------#
 
 
 def get_top_phrases(mips, questions, answers, query_encoder, tokenizer, batch_size, path, args):
@@ -965,7 +1025,7 @@ if __name__ == '__main__':
     parser.add_argument('--record_all_rerank_scores', default=True, action='store_true',
                         help="Records all rerank scores separately")
     parser.add_argument('--extra_embed_path',
-                        default=os.path.join(os.environ['DPH_DATA_DIR'], 'kilt_ks_wikidump/extra_emb'),
+                        default=os.path.join(os.environ['DPH_DATA_DIR'], 'kilt_ks_wikidump/title_emb'),
                         help="Path of the extra embeddings that are to be used for reranking")
     parser.add_argument('--title_embed_weight', default=0.0, type=float, help="Weightage for title based reranking")
 
@@ -977,8 +1037,8 @@ if __name__ == '__main__':
     args.compressed_metadata_path = os.path.join(args.dump_dir,
                                                  'dph_meta_compressed.pkl') if args.use_compressed_metadata else None
 
-    if not args.rerank:
-        args.extra_embed_path = None
+    # if not args.rerank and not :
+    #     args.extra_embed_path = None
 
     # Arguments to cache phrase index results.
     if args.phrase_index_cache_name is not None:
@@ -1010,6 +1070,11 @@ if __name__ == '__main__':
 
     elif args.run_mode == 'eval_inmemory':
         eval_inmemory(args)
+
+    elif args.run_mode == 'train_title':
+        args.mips_top_k = args.top_k
+        args.rerank_top_k = args.top_k
+        train_title_encoder(args)
 
     else:
         raise NotImplementedError

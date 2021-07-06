@@ -1,22 +1,37 @@
-import argparse
 import json
-import logging
+import argparse
+import torch
 import os
 import random
-
 import numpy as np
-import torch
+import requests
+import logging
+import math
+import copy
+import wandb
+import string
+
+from time import time
 from tqdm import tqdm
+
+from densephrases.models import DensePhrases, MIPS, MIPSLight
+from densephrases.utils.single_utils import backward_compat
+from densephrases.utils.squad_utils import get_question_dataloader, TrueCaser
+from densephrases.utils.embed_utils import get_question_results
+from densephrases.utils.eval_utils import normalize_answer, f1_score, exact_match_score, drqa_exact_match_score, \
+        drqa_regex_match_score, drqa_metric_max_over_ground_truths, drqa_normalize
+from densephrases.utils.kilt.eval import evaluate as kilt_evaluate
+from densephrases.utils.kilt.kilt_utils import store_data as kilt_store_data
+
 from transformers import (
     MODEL_MAPPING,
     AutoConfig,
     AutoTokenizer,
+    AutoModel,
+    AutoModelForQuestionAnswering,
+    AdamW,
+    get_linear_schedule_with_warmup,
 )
-
-from densephrases.models import DensePhrases
-from densephrases.utils.embed_utils import get_question_results
-from densephrases.utils.single_utils import backward_compat
-from densephrases.utils.squad_utils import get_question_dataloader
 
 logging.basicConfig(format='%(asctime)s - %(levelname)s - %(name)s -   %(message)s', datefmt='%m/%d/%Y %H:%M:%S',
                     level=logging.INFO)
@@ -86,9 +101,6 @@ def embed_all_title(title, args, query_encoder, tokenizer, batch_size=2048):
     all_outs = []
     for q_idx in tqdm(range(0, len(title), batch_size)):
         outs = query2vec(title[q_idx:q_idx+batch_size])
-        for o in outs:
-            print(o[0].shape)
-        print(batch_size)
         all_outs += outs
     start = np.concatenate([out[0] for out in all_outs], 0)
     end = np.concatenate([out[1] for out in all_outs], 0)
@@ -127,7 +139,7 @@ def create_title_emb(args, query_encoder=None, tokenizer=None):
         device = 'cuda' if args.cuda else 'cpu'
         query_encoder, tokenizer = load_query_encoder(device, args)
     title_vec, title_text = embed_all_title(titles, args, query_encoder, tokenizer)
-    out_dir = os.path.join(os.environ['DPH_DATA_DIR'],'kilt_ks_wikidump/title_emb')
+    out_dir = '/mnt/nfs/scratch1/hmalara/DensePhrase_Harsh_Repo/DensePhrases/dph-data/kilt_ks_wikidump/title_emb'
     np.save(os.path.join(out_dir,'title_emb.npy'),title_vec)
     with open(os.path.join(out_dir,'wiki2idx.json'),'w') as fout:
         json.dump(wiki2idx,fout)
@@ -146,7 +158,7 @@ if __name__ == '__main__':
     parser.add_argument("--config_name", default="", type=str)
     parser.add_argument("--tokenizer_name", default="", type=str)
     parser.add_argument("--do_lower_case", default=False, action='store_true')
-    parser.add_argument('--max_query_length', default=32, type=int)
+    parser.add_argument('--max_query_length', default=64, type=int)
     parser.add_argument("--cache_dir", default=None, type=str)
     parser.add_argument("--query_encoder_path", default='', type=str)
     parser.add_argument("--query_port", default='-1', type=str)
@@ -204,7 +216,7 @@ if __name__ == '__main__':
     parser.add_argument('--debug', default=False, action='store_true')
     parser.add_argument('--wandb', default=False, action='store_true')
     parser.add_argument('--seed', default=1992, type=int)
-    parser.add_argument("--title_path", default=os.path.join(os.environ['DPH_DATA_DIR'],'kilt_ks_wikidump/title_emb/titles.jsonl'), type=str)
+    parser.add_argument("--title_path", default='/mnt/nfs/scratch1/hmalara/DensePhrase_Harsh_Repo/DensePhrases/dph-data/kilt_ks_wikidump/title_emb/titles.jsonl', type=str)
     parser.add_argument('--combine', default=True, action='store_true')
     args = parser.parse_args()
 

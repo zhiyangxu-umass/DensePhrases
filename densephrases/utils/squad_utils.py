@@ -1442,26 +1442,31 @@ def get_title_dataloader(titles, questions, tokenizer, max_query_length=64, batc
     all_token_type_ids_list = []
     all_features = []
     all_examples = []
-    for t_idx, title in enumerate(titles):
-        examples = [SquadExample(qas_id=t_idx, question_text=t) for t in enumerate(title)]
+    doc_stride = None
+    max_seq_length = None
+    is_training=False
+    context_only=False
+    question_only=True
+    append_title=False
+    skip_no_answer=False
+    for t_idx, title in tqdm(enumerate(titles), total=len(titles), desc="add example index and unique id"):
+        examples = [SquadExample(qas_id=t_idx, question_text=t) for t in title]
         all_examples.append(examples)
         features = [squad_convert_example_to_features(
             example,
-            max_seq_length=max_seq_length,
-            doc_stride=doc_stride,
+            max_seq_length=None,
+            doc_stride=None,
             max_query_length=max_query_length,
-            is_training=is_training,
-            context_only=context_only,
-            question_only=question_only,
-            append_title=append_title,
-            skip_no_answer=skip_no_answer,
+            is_training=False,
+            context_only=False,
+            question_only=True,
+            append_title=False,
+            skip_no_answer=False,
         ) for example in examples]
         new_features = []
         unique_id = 1000000000
         example_index = 0
-        for example_features in tqdm(
-            features, total=len(features), desc="add example index and unique id", disable=not tqdm_enabled
-        ):
+        for example_features in features:
             if not example_features:
                 continue
             for example_feature in example_features:
@@ -1492,7 +1497,7 @@ def get_title_dataloader(titles, questions, tokenizer, max_query_length=64, batc
     all_feature_index_ = torch.arange(title_input_ids_.size(0), dtype=torch.long)
 
     # query dataloader
-    examples = [SquadExample(qas_id=t_idx, question_text=t) for t in enumerate(title)]
+    examples = [SquadExample(qas_id=t_idx, question_text=t) for t_idx, t in enumerate(questions)]
     features = [squad_convert_example_to_features(
         example,
         max_seq_length=max_seq_length,
@@ -1508,8 +1513,7 @@ def get_title_dataloader(titles, questions, tokenizer, max_query_length=64, batc
     unique_id = 1000000000
     example_index = 0
     for example_features in tqdm(
-        features, total=len(features), desc="add example index and unique id", disable=not tqdm_enabled
-    ):
+        features, total=len(features), desc="add example index and unique id"):
         if not example_features:
             continue
         for example_feature in example_features:
@@ -1529,9 +1533,10 @@ def get_title_dataloader(titles, questions, tokenizer, max_query_length=64, batc
     question_attention_masks_ = torch.tensor([f.attention_mask_ for f in features], dtype=torch.long)
     question_token_type_ids_ = torch.tensor([f.token_type_ids_ for f in features], dtype=torch.long)
 
-    
+    id2target = torch.arange(question_input_ids_.shape[0])
+    print(title_input_ids_.shape, title_attention_masks_.shape, title_token_type_ids_.shape, question_input_ids_.shape, question_attention_masks_.shape, question_token_type_ids_.shape, id2target.shape, all_feature_index_.shape )
     dataset = TensorDataset(
-        title_input_ids_, title_attention_masks_, title_token_type_ids_, question_input_ids_, question_attention_masks_, question_token_type_ids_, all_feature_index_
+        title_input_ids_, title_attention_masks_, title_token_type_ids_, question_input_ids_, question_attention_masks_, question_token_type_ids_, id2target, all_feature_index_
     )
 
     eval_sampler = SequentialSampler(dataset)

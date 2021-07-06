@@ -317,6 +317,25 @@ zsre-open-data: kilt-options
 	$(eval OPTIONS=$(OPTIONS) --kilt_gold_path $(DPH_DATA_DIR)/kilt/zsre/structured_zeroshot-dev-kilt.jsonl)
 benchmark-data:
 	$(eval TEST_DATA=densephrases/scripts/benchmark/data/nq_1000_dev_denspi.json)
+
+train_title: dump-dir model-name nq-open-data
+	python -m densephrases.experiments.run_open \
+		--run_mode train_title \
+		--model_type bert \
+		--pretrained_name_or_path SpanBERT/spanbert-base-cased \
+		--cuda \
+		--per_gpu_train_batch_size 2 \
+		--use_phrase_index_cache \
+		--phrase_index_cache_name nq_test_preprocessed_pq_cache.json \
+		--dump_dir $(DUMP_DIR) \
+		--output_dir /mnt/nfs/scratch1/zhiyangxu/difficulty_aware_QA/DensePhrases/experiment/title_encoder_train \
+		--phrase_dump_dir /mnt/nfs/work1/696ds-s21/hmalara/phrase \
+		--index_dir start-pq/1048576_flat_PQ96_8 \
+		--query_encoder_path $(DPH_SAVE_DIR)/$(MODEL_NAME) \
+		--test_path $(DPH_DATA_DIR)/open-qa/nq-open/nq_train_preprocessed.json \
+		--extra_embed_path /mnt/nfs/scratch1/hmalara/DensePhrase_Harsh_Repo/DensePhrases/dph-data/kilt_ks_wikidump/extra_emb \
+		$(OPTIONS)
+
 eval-od-rerank: dump-dir model-name nq-open-data
 	python -m densephrases.experiments.run_open \
 		--run_mode eval_inmemory \
